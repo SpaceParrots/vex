@@ -1,0 +1,41 @@
+{
+  "name": "vendure-vex",
+  "version": "0.1.0",
+  "description": "MCP server for Vendure Admin API — execute GraphQL mutations and queries via Claude",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "vex": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "introspect": "tsx src/introspect.ts",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "vendure",
+    "mcp",
+    "graphql",
+    "admin-api",
+    "claude"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "graphql": "^16.10.0",
+    "graphql-request": "^7.1.2",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "eslint": "^9.25.1",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
