@@ -97,6 +97,26 @@ export async function removeEnv(name: string): Promise<VexConfig> {
   return updated;
 }
 
+export async function updateEnv(
+  name: string,
+  fields: Partial<Environment>
+): Promise<VexConfig> {
+  const config = await loadConfig();
+  const existing = config.environments[name];
+  if (!existing) {
+    throw new Error(`Environment "${name}" not found.`);
+  }
+  const updated: VexConfig = {
+    ...config,
+    environments: {
+      ...config.environments,
+      [name]: { ...existing, ...fields },
+    },
+  };
+  await saveConfig(updated);
+  return updated;
+}
+
 export async function switchEnv(name: string): Promise<VexConfig> {
   const config = await loadConfig();
   if (!config.environments[name]) {
