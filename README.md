@@ -9,6 +9,14 @@ Your **v**endure admin-api graphql query **ex**ecutor. CLI tool and MCP server f
 
 Use `vex` from your terminal to manage products, customers, and orders — or connect it as an MCP server so Claude can do it for you.
 
+## Features
+
+- **Environment management** — add, switch, and configure multiple Vendure instances
+- **Typed resource commands** — CRUD operations for customers, products, and orders out of the box
+- **Raw GraphQL** — run any query or mutation directly from the terminal
+- **Schema caching** — fetch and cache your Vendure schema for offline reference
+- **MCP server** — expose all commands as tools so Claude can chain them via natural language
+
 ## Installation
 
 ```bash
@@ -82,39 +90,9 @@ vex query '<graphql>' [--variables '<json>']    # Run any query
 vex mutate '<graphql>' [--variables '<json>']   # Run any mutation
 ```
 
-### Customers
+### Customers, Products & Orders
 
-```bash
-vex customer list [--take <n>] [--skip <n>] [--email <filter>] [--name <filter>]
-vex customer get <id>
-vex customer create --email <email> --first-name <name> --last-name <name> [--phone <n>] [--title <t>]
-vex customer update <id> [--email <email>] [--first-name <name>] [--last-name <name>] [--phone <n>]
-vex customer delete <id>
-vex customer add-note <id> --note <text> [--public]
-```
-
-### Products
-
-```bash
-vex product list [--take <n>] [--skip <n>] [--name <filter>]
-vex product get <id>
-vex product create --name <name> --slug <slug> --description <desc> [--facet-value-ids <id,id>]
-vex product update <id> [--name <name>] [--slug <slug>] [--description <desc>] [--enabled|--disabled]
-vex product delete <id>
-vex product add-variants <productId> --variants '<json>'
-```
-
-### Orders
-
-```bash
-vex order list [--take <n>] [--skip <n>] [--code <filter>]
-vex order get <id>
-vex order create-draft
-vex order add-item <orderId> --variant <variantId> --quantity <n>
-vex order set-customer <orderId> --customer <customerId>
-vex order transition <id> --state <state>
-vex order cancel <id> [--reason <reason>]
-```
+Each resource supports `list`, `get`, `create`, `update`, and `delete` plus resource-specific actions (e.g. `customer add-note`, `product add-variants`, `order transition`). Run `vex <resource> --help` for full options.
 
 ## MCP setup (Claude Code)
 
@@ -130,12 +108,13 @@ Add to your project's `.mcp.json` or global `~/.claude.json`:
   }
 }
 ```
+> Windows might require to run it via `cmd /c "npx -y @spaceparrots/vex"`
 
 Running `vex` with no arguments starts the MCP server on stdio — this is what MCP clients expect.
 
 Once connected, ask Claude:
 
-> Add my Vendure dev server at https://dev.example.com/admin-api with API key sk-1234
+> Add my Vendure dev server at http://localhost:3000/admin-api with API key sk-1234
 
 Then you can use natural language:
 
