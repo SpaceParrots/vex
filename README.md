@@ -12,11 +12,28 @@ npm install -g @spaceparrots/vex
 
 This puts the `vex` command on your PATH.
 
+## Requirements
+
+**Vendure 3.6+** is required. Vex uses the [API key authentication](https://docs.vendure.io/current/core/developer-guide/api-keys) method introduced in Vendure 3.6.
+
+To set up your Vendure instance:
+
+1. Enable API key auth in your Vendure config:
+   ```ts
+   authOptions: {
+       tokenMethod: ['cookie', 'bearer', 'api-key'],
+   }
+   ```
+2. Go to **Settings > API Keys** in the Vendure dashboard
+3. Create a new key, assign the roles/permissions it needs, and copy the key (it's shown only once)
+
+The key is sent via the `vendure-api-key` header on every request.
+
 ## Quick start
 
 ```bash
 # Add an environment
-vex env add dev --url https://dev.example.com/admin-api --api-key sk-1234
+vex env add dev --url http://localhost:3000/admin-api --api-key sk-123456
 
 # List products
 vex product list
