@@ -1,6 +1,11 @@
-# vendure-vex
+# Vex
+![](https://img.shields.io/badge/Node.js-20%2B-brightgreen?style=flat-square) [![npm]](https://www.npmjs.com/package/@spaceparrots/vex)
 
-CLI tool and MCP server for the Vendure Admin GraphQL API.
+[npm]: https://img.shields.io/npm/v/%40spaceparrots%2Fvex.svg?style=flat-square
+
+Your **v**endure admin-api graphql query **ex**ecutor. CLI tool and MCP server for the Vendure Admin GraphQL API.
+
+![vex-mascot-banner](https://github.com/user-attachments/assets/52237673-4c6b-4e12-966a-8ab942e95744)
 
 Use `vex` from your terminal to manage products, customers, and orders — or connect it as an MCP server so Claude can do it for you.
 
