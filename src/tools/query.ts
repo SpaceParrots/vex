@@ -1,10 +1,13 @@
+/** @module tools/query — MCP tool for executing arbitrary GraphQL queries. */
+
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { executeQuery } from "../services/query.js";
 
+/** Registers the `vex_query` MCP tool with error-aware response handling. */
 export function registerQueryTool(server: McpServer): void {
   server.tool(
-    "vendure_query",
+    "vex_query",
     "Execute a GraphQL query against the active Vendure Admin API environment.",
     {
       query: z.string().describe("GraphQL query string"),

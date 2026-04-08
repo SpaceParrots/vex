@@ -1,3 +1,5 @@
+/** @module tools/channels — MCP tools for channel management (list, get, get-active, update). */
+
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
@@ -6,14 +8,12 @@ import {
   getActiveChannel,
   updateChannel,
 } from "../services/channels.js";
+import { jsonContent } from "../output.js";
 
-function jsonContent(data: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
-}
-
+/** Registers all `vex_*_channel*` MCP tools for channel operations. */
 export function registerChannelTools(server: McpServer): void {
   server.tool(
-    "vendure_get_channels",
+    "vex_get_channels",
     "List channels with optional pagination.",
     {
       take: z.number().optional().describe("Number of results to return"),
@@ -23,21 +23,21 @@ export function registerChannelTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_get_channel",
+    "vex_get_channel",
     "Get a channel by ID.",
     { id: z.string().describe("Channel ID") },
     async (input) => jsonContent(await getChannel(input.id))
   );
 
   server.tool(
-    "vendure_get_active_channel",
+    "vex_get_active_channel",
     "Get the currently active channel.",
     {},
     async () => jsonContent(await getActiveChannel())
   );
 
   server.tool(
-    "vendure_update_channel",
+    "vex_update_channel",
     "Update channel settings including default tax zone, default shipping zone, currency, language, and more.",
     {
       id: z.string().describe("Channel ID"),

@@ -1,3 +1,5 @@
+/** @module tools/tax — MCP tools for tax category and tax rate management. */
+
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
@@ -11,14 +13,12 @@ import {
   updateTaxRate,
   deleteTaxRate,
 } from "../services/tax.js";
+import { jsonContent } from "../output.js";
 
-function jsonContent(data: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
-}
-
+/** Registers all `vex_*_tax_*` MCP tools for tax category and rate operations. */
 export function registerTaxTools(server: McpServer): void {
   server.tool(
-    "vendure_get_tax_categories",
+    "vex_get_tax_categories",
     "List tax categories.",
     {
       take: z.number().optional().describe("Number of results to return"),
@@ -28,14 +28,14 @@ export function registerTaxTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_get_tax_category",
+    "vex_get_tax_category",
     "Get a tax category by ID.",
     { id: z.string().describe("Tax category ID") },
     async (input) => jsonContent(await getTaxCategory(input.id))
   );
 
   server.tool(
-    "vendure_create_tax_category",
+    "vex_create_tax_category",
     "Create a new tax category (e.g. 'Standard', 'Reduced', 'Zero-rated').",
     {
       name: z.string().describe("Tax category name"),
@@ -45,14 +45,14 @@ export function registerTaxTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_delete_tax_category",
+    "vex_delete_tax_category",
     "Delete a tax category by ID.",
     { id: z.string().describe("Tax category ID") },
     async (input) => jsonContent(await deleteTaxCategory(input.id))
   );
 
   server.tool(
-    "vendure_get_tax_rates",
+    "vex_get_tax_rates",
     "List tax rates.",
     {
       take: z.number().optional().describe("Number of results to return"),
@@ -62,14 +62,14 @@ export function registerTaxTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_get_tax_rate",
+    "vex_get_tax_rate",
     "Get a tax rate by ID.",
     { id: z.string().describe("Tax rate ID") },
     async (input) => jsonContent(await getTaxRate(input.id))
   );
 
   server.tool(
-    "vendure_create_tax_rate",
+    "vex_create_tax_rate",
     "Create a new tax rate. Links a tax category to a zone with a percentage value.",
     {
       name: z.string().describe("Tax rate name (e.g. 'GST 18%')"),
@@ -83,7 +83,7 @@ export function registerTaxTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_update_tax_rate",
+    "vex_update_tax_rate",
     "Update an existing tax rate.",
     {
       id: z.string().describe("Tax rate ID"),
@@ -98,7 +98,7 @@ export function registerTaxTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_delete_tax_rate",
+    "vex_delete_tax_rate",
     "Delete a tax rate by ID.",
     { id: z.string().describe("Tax rate ID") },
     async (input) => jsonContent(await deleteTaxRate(input.id))

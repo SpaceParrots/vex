@@ -1,3 +1,5 @@
+/** @module tools/zones — MCP tools for zone and country management (list, get, create, update, delete, add/remove-members, create-country, get-countries). */
+
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
@@ -11,14 +13,12 @@ import {
   createCountry,
   listCountries,
 } from "../services/zones.js";
+import { jsonContent } from "../output.js";
 
-function jsonContent(data: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
-}
-
+/** Registers all `vex_*_zone*` and `vex_*_country*` MCP tools. */
 export function registerZoneTools(server: McpServer): void {
   server.tool(
-    "vendure_get_zones",
+    "vex_get_zones",
     "List zones with optional pagination.",
     {
       take: z.number().optional().describe("Number of results to return"),
@@ -28,14 +28,14 @@ export function registerZoneTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_get_zone",
+    "vex_get_zone",
     "Get a single zone by ID with its country/region members.",
     { id: z.string().describe("Zone ID") },
     async (input) => jsonContent(await getZone(input.id))
   );
 
   server.tool(
-    "vendure_create_zone",
+    "vex_create_zone",
     "Create a new zone. Optionally assign country/region members immediately.",
     {
       name: z.string().describe("Zone name (e.g. 'India', 'EU', 'North America')"),
@@ -45,7 +45,7 @@ export function registerZoneTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_update_zone",
+    "vex_update_zone",
     "Update an existing zone.",
     {
       id: z.string().describe("Zone ID"),
@@ -55,14 +55,14 @@ export function registerZoneTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_delete_zone",
+    "vex_delete_zone",
     "Delete a zone by ID.",
     { id: z.string().describe("Zone ID") },
     async (input) => jsonContent(await deleteZone(input.id))
   );
 
   server.tool(
-    "vendure_add_members_to_zone",
+    "vex_add_members_to_zone",
     "Add countries/regions to an existing zone.",
     {
       zoneId: z.string().describe("Zone ID"),
@@ -72,7 +72,7 @@ export function registerZoneTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_remove_members_from_zone",
+    "vex_remove_members_from_zone",
     "Remove countries/regions from an existing zone.",
     {
       zoneId: z.string().describe("Zone ID"),
@@ -82,7 +82,7 @@ export function registerZoneTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_create_country",
+    "vex_create_country",
     "Create a new country/region.",
     {
       name: z.string().describe("Country name (e.g. 'India', 'United States')"),
@@ -93,7 +93,7 @@ export function registerZoneTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_get_countries",
+    "vex_get_countries",
     "List available countries/regions with optional pagination.",
     {
       take: z.number().optional().describe("Number of results to return"),

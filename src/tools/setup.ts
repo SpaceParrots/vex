@@ -1,3 +1,5 @@
+/** @module tools/setup — MCP tool for managing Vendure environments (add, remove, list, switch, show, set). */
+
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
@@ -29,9 +31,10 @@ const SetupInputSchema = z.object({
   ),
 });
 
+/** Registers the `vex_setup` MCP tool for environment CRUD operations. */
 export function registerSetupTool(server: McpServer): void {
   server.tool(
-    "vendure_setup",
+    "vex_setup",
     "Manage Vendure API environments. Add, remove, list, switch between, show, or set (update) environment configurations.",
     SetupInputSchema.shape,
     async (input) => {
