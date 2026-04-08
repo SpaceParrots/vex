@@ -1,15 +1,23 @@
-import { getActiveEnv } from "../config.js";
-import { createClient } from "../client.js";
+/**
+ * @module services/products
+ *
+ * Product catalog operations for the Vendure Admin API.
+ * Supports listing, creating, updating, deleting products, and creating variants.
+ */
 
+import { getClient } from "../client.js";
+import { DEFAULT_PAGE_SIZE, DEFAULT_SKIP, DEFAULT_LANGUAGE_CODE } from "../constants.js";
+
+/** Options for filtering and paginating the product list. */
 export interface ProductListInput {
   readonly take?: number;
   readonly skip?: number;
   readonly filterByName?: string;
 }
 
+/** Lists products with optional name filter and pagination. */
 export async function listProducts(input: ProductListInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   const filter: Record<string, unknown> = {};
   if (input.filterByName) {
@@ -40,17 +48,17 @@ export async function listProducts(input: ProductListInput): Promise<unknown> {
     }`,
     {
       options: {
-        take: input.take ?? 20,
-        skip: input.skip ?? 0,
+        take: input.take ?? DEFAULT_PAGE_SIZE,
+        skip: input.skip ?? DEFAULT_SKIP,
         ...(Object.keys(filter).length > 0 && { filter }),
       },
     }
   );
 }
 
+/** Retrieves a single product by ID, including its variants, option groups, facet values, and assets. */
 export async function getProduct(id: string): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `query GetProduct($id: ID!) {
@@ -94,6 +102,7 @@ export async function getProduct(id: string): Promise<unknown> {
   );
 }
 
+/** Input fields for creating a new product. */
 export interface CreateProductInput {
   readonly name: string;
   readonly slug: string;
@@ -101,9 +110,12 @@ export interface CreateProductInput {
   readonly facetValueIds?: readonly string[];
 }
 
+/**
+ * Creates a new product. Uses {@link DEFAULT_LANGUAGE_CODE} for the translation entry
+ * wrapping name, slug, and description.
+ */
 export async function createProduct(input: CreateProductInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation CreateProduct($input: CreateProductInput!) {
@@ -118,7 +130,7 @@ export async function createProduct(input: CreateProductInput): Promise<unknown>
       input: {
         translations: [
           {
-            languageCode: "en",
+            languageCode: DEFAULT_LANGUAGE_CODE,
             name: input.name,
             slug: input.slug,
             description: input.description,
@@ -130,6 +142,7 @@ export async function createProduct(input: CreateProductInput): Promise<unknown>
   );
 }
 
+/** Input fields for updating an existing product. All fields except `id` are optional. */
 export interface UpdateProductInput {
   readonly id: string;
   readonly name?: string;
@@ -138,11 +151,15 @@ export interface UpdateProductInput {
   readonly enabled?: boolean;
 }
 
+/**
+ * Updates an existing product. Only provided fields are sent to the API.
+ * Uses {@link DEFAULT_LANGUAGE_CODE} for the translation entry when name, slug,
+ * or description are changed.
+ */
 export async function updateProduct(input: UpdateProductInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
-  const translations: Record<string, string> = { languageCode: "en" };
+  const translations: Record<string, string> = { languageCode: DEFAULT_LANGUAGE_CODE };
   if (input.name !== undefined) translations.name = input.name;
   if (input.slug !== undefined) translations.slug = input.slug;
   if (input.description !== undefined) translations.description = input.description;
@@ -169,9 +186,9 @@ export async function updateProduct(input: UpdateProductInput): Promise<unknown>
   );
 }
 
+/** Deletes a product by ID. Returns the deletion result and an optional message. */
 export async function deleteProduct(id: string): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation DeleteProduct($id: ID!) {
@@ -184,6 +201,7 @@ export async function deleteProduct(id: string): Promise<unknown> {
   );
 }
 
+/** Shape of a single variant within a {@link CreateProductVariantsInput} batch. */
 export interface VariantInput {
   readonly name: string;
   readonly sku: string;
@@ -191,14 +209,19 @@ export interface VariantInput {
   readonly stockOnHand?: number;
 }
 
+/** Input for creating one or more variants on a product. */
 export interface CreateProductVariantsInput {
   readonly productId: string;
   readonly variants: readonly VariantInput[];
 }
 
+/**
+ * Creates one or more variants for a product. Each variant receives a translation
+ * entry using {@link DEFAULT_LANGUAGE_CODE}. Returns a union of `ProductVariant`
+ * or `ErrorResult` per variant (Vendure union return type).
+ */
 export async function createProductVariants(input: CreateProductVariantsInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation CreateProductVariants($input: [CreateProductVariantInput!]!) {
@@ -221,7 +244,7 @@ export async function createProductVariants(input: CreateProductVariantsInput): 
         productId: input.productId,
         sku: v.sku,
         price: v.price,
-        translations: [{ languageCode: "en", name: v.name }],
+        translations: [{ languageCode: DEFAULT_LANGUAGE_CODE, name: v.name }],
         ...(v.stockOnHand !== undefined && { stockOnHand: v.stockOnHand }),
       })),
     }

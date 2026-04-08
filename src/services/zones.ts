@@ -1,14 +1,23 @@
-import { getActiveEnv } from "../config.js";
-import { createClient } from "../client.js";
+/**
+ * @module services/zones
+ *
+ * Zone and country management operations for the Vendure Admin API.
+ * Zones group countries/regions for tax and shipping configuration.
+ * Countries are zone members in Vendure's data model.
+ */
 
+import { getClient } from "../client.js";
+import { DEFAULT_PAGE_SIZE, DEFAULT_SKIP, COUNTRIES_PAGE_SIZE, DEFAULT_LANGUAGE_CODE } from "../constants.js";
+
+/** Pagination options for listing zones. */
 export interface ZoneListInput {
   readonly take?: number;
   readonly skip?: number;
 }
 
+/** Lists zones with their members, paginated (defaults: take 20, skip 0). */
 export async function listZones(input: ZoneListInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `query GetZones($options: ZoneListOptions) {
@@ -29,16 +38,16 @@ export async function listZones(input: ZoneListInput): Promise<unknown> {
     }`,
     {
       options: {
-        take: input.take ?? 20,
-        skip: input.skip ?? 0,
+        take: input.take ?? DEFAULT_PAGE_SIZE,
+        skip: input.skip ?? DEFAULT_SKIP,
       },
     }
   );
 }
 
+/** Retrieves a single zone by ID, including its country members and enabled status. */
 export async function getZone(id: string): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `query GetZone($id: ID!) {
@@ -59,14 +68,15 @@ export async function getZone(id: string): Promise<unknown> {
   );
 }
 
+/** Input for creating a new zone with an optional set of country member IDs. */
 export interface CreateZoneInput {
   readonly name: string;
   readonly memberIds?: readonly string[];
 }
 
+/** Creates a new zone, optionally pre-populated with country members. */
 export async function createZone(input: CreateZoneInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation CreateZone($input: CreateZoneInput!) {
@@ -89,14 +99,15 @@ export async function createZone(input: CreateZoneInput): Promise<unknown> {
   );
 }
 
+/** Input for updating zone properties (currently only the name). */
 export interface UpdateZoneInput {
   readonly id: string;
   readonly name?: string;
 }
 
+/** Updates zone properties. Only provided fields are sent to the API. */
 export async function updateZone(input: UpdateZoneInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   const updateInput: Record<string, unknown> = { id: input.id };
   if (input.name !== undefined) updateInput.name = input.name;
@@ -117,9 +128,9 @@ export async function updateZone(input: UpdateZoneInput): Promise<unknown> {
   );
 }
 
+/** Deletes a zone by ID. Returns a result with success/failure message. */
 export async function deleteZone(id: string): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation DeleteZone($id: ID!) {
@@ -132,14 +143,15 @@ export async function deleteZone(id: string): Promise<unknown> {
   );
 }
 
+/** Input for adding country members to an existing zone. */
 export interface AddMembersToZoneInput {
   readonly zoneId: string;
   readonly memberIds: readonly string[];
 }
 
+/** Adds one or more country members to a zone. Returns the updated zone. */
 export async function addMembersToZone(input: AddMembersToZoneInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation AddMembersToZone($zoneId: ID!, $memberIds: [ID!]!) {
@@ -160,14 +172,15 @@ export async function addMembersToZone(input: AddMembersToZoneInput): Promise<un
   );
 }
 
+/** Input for removing country members from an existing zone. */
 export interface RemoveMembersFromZoneInput {
   readonly zoneId: string;
   readonly memberIds: readonly string[];
 }
 
+/** Removes one or more country members from a zone. Returns the updated zone. */
 export async function removeMembersFromZone(input: RemoveMembersFromZoneInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation RemoveMembersFromZone($zoneId: ID!, $memberIds: [ID!]!) {
@@ -188,15 +201,19 @@ export async function removeMembersFromZone(input: RemoveMembersFromZoneInput): 
   );
 }
 
+/** Input for creating a country. Countries default to enabled if not specified. */
 export interface CreateCountryInput {
   readonly name: string;
   readonly code: string;
   readonly enabled?: boolean;
 }
 
+/**
+ * Creates a country with a translation for the default language code.
+ * Countries default to enabled so they are immediately available for zone assignment.
+ */
 export async function createCountry(input: CreateCountryInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation CreateCountry($input: CreateCountryInput!) {
@@ -210,10 +227,11 @@ export async function createCountry(input: CreateCountryInput): Promise<unknown>
     {
       input: {
         code: input.code,
+        // Countries are enabled by default so they are immediately available for zone assignment
         enabled: input.enabled ?? true,
         translations: [
           {
-            languageCode: "en",
+            languageCode: DEFAULT_LANGUAGE_CODE,
             name: input.name,
           },
         ],
@@ -222,14 +240,15 @@ export async function createCountry(input: CreateCountryInput): Promise<unknown>
   );
 }
 
+/** Pagination options for listing countries. */
 export interface CountryListInput {
   readonly take?: number;
   readonly skip?: number;
 }
 
+/** Lists countries with pagination (defaults: take 250, skip 0). Uses a larger page size since countries are a bounded set. */
 export async function listCountries(input: CountryListInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `query GetCountries($options: CountryListOptions) {
@@ -245,8 +264,8 @@ export async function listCountries(input: CountryListInput): Promise<unknown> {
     }`,
     {
       options: {
-        take: input.take ?? 250,
-        skip: input.skip ?? 0,
+        take: input.take ?? COUNTRIES_PAGE_SIZE,
+        skip: input.skip ?? DEFAULT_SKIP,
       },
     }
   );
