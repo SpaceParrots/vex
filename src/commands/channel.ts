@@ -1,3 +1,5 @@
+/** @module commands/channel — CLI subcommands for channel management (list, get, active, set-defaults). */
+
 import { Command } from "commander";
 import {
   listChannels,
@@ -5,8 +7,9 @@ import {
   getActiveChannel,
   updateChannel,
 } from "../services/channels.js";
-import { printJson, printSuccess, handleError } from "../output.js";
+import { printJson, handleError } from "../output.js";
 
+/** Creates the `vex channel` command group with list, get, active, and set-defaults subcommands. */
 export function createChannelCommand(): Command {
   const channel = new Command("channel").description("Channel operations");
 

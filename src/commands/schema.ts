@@ -1,7 +1,10 @@
+/** @module commands/schema — CLI command for fetching and caching the GraphQL schema. */
+
 import { Command } from "commander";
 import { fetchSchemaForEnv } from "../services/schema.js";
 import { printSuccess, handleError } from "../output.js";
 
+/** Creates the `vex schema` command group with a `fetch` subcommand. */
 export function createSchemaCommand(): Command {
   const schema = new Command("schema").description("Schema operations");
 

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Vex (`@spaceparrots/vex`) is a dual-mode CLI tool and MCP server for the **Vendure Admin GraphQL API**. It runs as an MCP server by default (no args or `serve`) or as a CLI when invoked with commands. Requires Vendure 3.6+ with API key authentication (`vendure-api-key` header).
 
-Vendure is an open-source headless commerce framework. Vex wraps its **Admin API** — a GraphQL API for managing products, customers, orders, zones, tax, channels, and more. Vendure instances often have **custom plugins that extend the Admin API** with additional types, queries, and mutations beyond the core schema. Vex supports this via raw `vendure_query`/`vendure_mutate` tools and schema introspection/caching, so it can work with any custom Admin API shape.
+Vendure is an open-source headless commerce framework. Vex wraps its **Admin API** — a GraphQL API for managing products, customers, orders, zones, tax, channels, and more. Vendure instances often have **custom plugins that extend the Admin API** with additional types, queries, and mutations beyond the core schema. Vex supports this via raw `vex_query`/`vex_mutate` tools and schema introspection/caching, so it can work with any custom Admin API shape.
 
 ## Commands
 
@@ -57,11 +57,11 @@ Vex is a user-facing tool. Every CLI command and MCP tool should feel intuitive 
 
 Each Vendure entity (customers, products, orders, zones, tax, channels) follows the same structure:
 
-1. **Services** (`src/services/*.ts`) — Stateless functions that build and execute GraphQL operations. Every function calls `getActiveEnv()` → `createClient(env)` → `client.request(query, variables)`.
+1. **Services** (`src/services/*.ts`) — Stateless functions that build and execute GraphQL operations. Every function calls `getClient()` → `client.request(query, variables)`. Magic values (pagination defaults, language codes) are imported from `src/constants.ts`.
 
 2. **Commands** (`src/commands/*.ts`) — CLI wrappers using Commander. Parse args, call service functions, format output via `src/output.ts`.
 
-3. **Tools** (`src/tools/*.ts`) — MCP tool wrappers. Define Zod schemas for input validation, call the same service functions, return results via `jsonContent()` helper.
+3. **Tools** (`src/tools/*.ts`) — MCP tool wrappers. Define Zod schemas for input validation, call the same service functions, return results via the shared `jsonContent()` helper from `src/output.ts`.
 
 Commands and tools are thin wrappers; business logic lives in services.
 
@@ -74,9 +74,10 @@ Commands and tools are thin wrappers; business logic lives in services.
 ### Infrastructure
 
 - **`src/config.ts`** — Environment management. Config persisted at `~/.vendure-vex/config.json`. Multiple named environments with url, apiKey, and optional schemaSource.
-- **`src/client.ts`** — GraphQL client factory using `graphql-request` with `vendure-api-key` header.
+- **`src/constants.ts`** — Shared constants (pagination defaults, language code, API key header name, masking parameters).
+- **`src/client.ts`** — GraphQL client factory using `graphql-request` with `vendure-api-key` header. Exports `getClient()` convenience helper.
 - **`src/schema.ts`** — Schema introspection and caching at `~/.vendure-vex/schemas/*.graphql`. Exposed as MCP resource (`vendure://schema/{envName}`).
-- **`src/output.ts`** — CLI output formatting: `printJson`, `printSuccess`, `printError`, `printTable`, `handleError`.
+- **`src/output.ts`** — CLI output formatting (`printJson`, `printSuccess`, `printError`, `printInfo`, `printTable`, `handleError`) and the shared `jsonContent()` MCP response helper.
 
 ## Conventions
 

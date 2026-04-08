@@ -1,21 +1,39 @@
+/**
+ * @module config
+ *
+ * Manages vex environment configuration persisted at `~/.vendure-vex/config.json`.
+ * Supports multiple named environments, each with a Vendure API URL, API key,
+ * and optional schema source. One environment is designated as "active" at a time.
+ */
+
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { existsSync } from "node:fs";
 
+/** Describes how to obtain the GraphQL schema for an environment. */
 export interface SchemaSource {
+  /** "endpoint" uses introspection; "file" reads a local SDL file. */
   type: "endpoint" | "file";
+  /** The introspection URL or file path, depending on `type`. */
   value?: string;
 }
 
+/** A single Vendure Admin API connection configuration. */
 export interface Environment {
+  /** The Vendure Admin API GraphQL endpoint URL. */
   url: string;
+  /** API key sent via the `vendure-api-key` header. */
   apiKey: string;
+  /** Optional schema source for introspection or local SDL caching. */
   schemaSource?: SchemaSource;
 }
 
+/** Top-level configuration object stored on disk. */
 export interface VexConfig {
+  /** Name of the currently active environment (empty string if none). */
   activeEnvironment: string;
+  /** Map of environment name to its configuration. */
   environments: Record<string, Environment>;
 }
 
@@ -32,6 +50,7 @@ async function ensureDirs(): Promise<void> {
   await mkdir(SCHEMAS_DIR, { recursive: true });
 }
 
+/** Loads the configuration from disk, returning an empty config if the file does not exist. */
 export async function loadConfig(): Promise<VexConfig> {
   if (!existsSync(CONFIG_FILE)) {
     return emptyConfig();
@@ -40,11 +59,17 @@ export async function loadConfig(): Promise<VexConfig> {
   return JSON.parse(raw) as VexConfig;
 }
 
+/** Persists the configuration to disk, creating directories as needed. */
 export async function saveConfig(config: VexConfig): Promise<void> {
   await ensureDirs();
   await writeFile(CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
 }
 
+/**
+ * Returns the active environment's name and configuration.
+ *
+ * @throws If no active environment is set.
+ */
 export async function getActiveEnv(): Promise<{
   name: string;
   env: Environment;
@@ -53,12 +78,19 @@ export async function getActiveEnv(): Promise<{
   const name = config.activeEnvironment;
   if (!name || !config.environments[name]) {
     throw new Error(
-      "No active environment configured. Use the vendure_setup tool to add one."
+      "No active environment configured. Use the vex_setup tool to add one."
     );
   }
   return { name, env: config.environments[name] };
 }
 
+/**
+ * Adds a new environment. The first environment added is automatically set as active.
+ *
+ * @param name - Unique name for the environment.
+ * @param env - Environment connection details.
+ * @returns The updated configuration.
+ */
 export async function addEnv(
   name: string,
   env: Environment
@@ -74,6 +106,12 @@ export async function addEnv(
   return updated;
 }
 
+/**
+ * Removes an environment by name and deletes its cached schema file.
+ * Clears the active environment if the removed one was active.
+ *
+ * @throws If the environment does not exist.
+ */
 export async function removeEnv(name: string): Promise<VexConfig> {
   const config = await loadConfig();
   if (!config.environments[name]) {
@@ -97,6 +135,13 @@ export async function removeEnv(name: string): Promise<VexConfig> {
   return updated;
 }
 
+/**
+ * Partially updates an existing environment's configuration fields.
+ *
+ * @param name - Name of the environment to update.
+ * @param fields - Fields to merge into the existing configuration.
+ * @throws If the environment does not exist.
+ */
 export async function updateEnv(
   name: string,
   fields: Partial<Environment>
@@ -117,6 +162,11 @@ export async function updateEnv(
   return updated;
 }
 
+/**
+ * Switches the active environment to the specified name.
+ *
+ * @throws If the environment does not exist.
+ */
 export async function switchEnv(name: string): Promise<VexConfig> {
   const config = await loadConfig();
   if (!config.environments[name]) {
@@ -127,6 +177,7 @@ export async function switchEnv(name: string): Promise<VexConfig> {
   return updated;
 }
 
+/** Returns all environments and the name of the currently active one. */
 export async function listEnvs(): Promise<{
   active: string;
   environments: Record<string, Environment>;
@@ -138,6 +189,7 @@ export async function listEnvs(): Promise<{
   };
 }
 
+/** Returns the file path where a given environment's cached schema is stored. */
 export function getSchemaPath(envName: string): string {
   return join(SCHEMAS_DIR, `${envName}.graphql`);
 }
