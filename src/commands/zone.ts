@@ -7,6 +7,7 @@ import {
   deleteZone,
   addMembersToZone,
   removeMembersFromZone,
+  createCountry,
   listCountries,
 } from "../services/zones.js";
 import { printJson, printSuccess, handleError } from "../output.js";
@@ -112,6 +113,25 @@ export function createZoneCommand(): Command {
         const data = await removeMembersFromZone({
           zoneId,
           memberIds: opts.memberIds.split(","),
+        });
+        printJson(data);
+      } catch (err) {
+        handleError(err);
+      }
+    });
+
+  zone
+    .command("create-country")
+    .description("Create a new country")
+    .requiredOption("--name <name>", "Country name")
+    .requiredOption("--code <code>", "ISO country code (e.g. IN, US, GB)")
+    .option("--disabled", "Create the country as disabled")
+    .action(async (opts) => {
+      try {
+        const data = await createCountry({
+          name: opts.name,
+          code: opts.code,
+          enabled: !opts.disabled,
         });
         printJson(data);
       } catch (err) {

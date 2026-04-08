@@ -188,6 +188,40 @@ export async function removeMembersFromZone(input: RemoveMembersFromZoneInput): 
   );
 }
 
+export interface CreateCountryInput {
+  readonly name: string;
+  readonly code: string;
+  readonly enabled?: boolean;
+}
+
+export async function createCountry(input: CreateCountryInput): Promise<unknown> {
+  const { env } = await getActiveEnv();
+  const client = createClient(env);
+
+  return client.request(
+    `mutation CreateCountry($input: CreateCountryInput!) {
+      createCountry(input: $input) {
+        id
+        name
+        code
+        enabled
+      }
+    }`,
+    {
+      input: {
+        code: input.code,
+        enabled: input.enabled ?? true,
+        translations: [
+          {
+            languageCode: "en",
+            name: input.name,
+          },
+        ],
+      },
+    }
+  );
+}
+
 export interface CountryListInput {
   readonly take?: number;
   readonly skip?: number;

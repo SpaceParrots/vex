@@ -8,6 +8,7 @@ import {
   deleteZone,
   addMembersToZone,
   removeMembersFromZone,
+  createCountry,
   listCountries,
 } from "../services/zones.js";
 
@@ -78,6 +79,17 @@ export function registerZoneTools(server: McpServer): void {
       memberIds: z.array(z.string()).describe("Country/region IDs to remove"),
     },
     async (input) => jsonContent(await removeMembersFromZone(input))
+  );
+
+  server.tool(
+    "vendure_create_country",
+    "Create a new country/region.",
+    {
+      name: z.string().describe("Country name (e.g. 'India', 'United States')"),
+      code: z.string().describe("ISO country code (e.g. 'IN', 'US', 'GB')"),
+      enabled: z.boolean().optional().describe("Whether the country is enabled (default: true)"),
+    },
+    async (input) => jsonContent(await createCountry(input))
   );
 
   server.tool(
