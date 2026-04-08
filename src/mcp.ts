@@ -7,6 +7,9 @@ import { registerMutateTool } from "./tools/mutate.js";
 import { registerCustomerTools } from "./tools/customers.js";
 import { registerProductTools } from "./tools/products.js";
 import { registerOrderTools } from "./tools/orders.js";
+import { registerZoneTools } from "./tools/zones.js";
+import { registerTaxTools } from "./tools/tax.js";
+import { registerChannelTools } from "./tools/channels.js";
 import { loadConfig } from "./config.js";
 import { loadSchema } from "./schema.js";
 
@@ -47,6 +50,9 @@ export async function startMcpServer(): Promise<void> {
   registerCustomerTools(server);
   registerProductTools(server);
   registerOrderTools(server);
+  registerZoneTools(server);
+  registerTaxTools(server);
+  registerChannelTools(server);
 
   // Try to load schema on startup and expose it as a resource
   try {

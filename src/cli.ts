@@ -6,6 +6,9 @@ import { createCustomerCommand } from "./commands/customer.js";
 import { createProductCommand } from "./commands/product.js";
 import { createOrderCommand } from "./commands/order.js";
 import { createSchemaCommand } from "./commands/schema.js";
+import { createZoneCommand } from "./commands/zone.js";
+import { createTaxCommand } from "./commands/tax.js";
+import { createChannelCommand } from "./commands/channel.js";
 
 export function createCli(): Command {
   const program = new Command();
@@ -22,6 +25,9 @@ export function createCli(): Command {
   program.addCommand(createProductCommand());
   program.addCommand(createOrderCommand());
   program.addCommand(createSchemaCommand());
+  program.addCommand(createZoneCommand());
+  program.addCommand(createTaxCommand());
+  program.addCommand(createChannelCommand());
 
   return program;
 }
