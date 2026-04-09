@@ -42,14 +42,24 @@ export async function fetchSchemaForEnv(environment?: string): Promise<SchemaFet
   }
 
   const sdl = await refetchSchema(env, name);
-  const doc = parse(sdl);
 
-  const typeCount = doc.definitions.filter(
-    (d) => d.kind === "ObjectTypeDefinition"
-  ).length;
+  let typeCount = 0;
+  let queryFields = 0;
+  let mutationFields = 0;
 
-  const queryFields = countFieldsForType(doc.definitions, "Query");
-  const mutationFields = countFieldsForType(doc.definitions, "Mutation");
+  try {
+    const doc = parse(sdl);
+    typeCount = doc.definitions.filter(
+      (d) => d.kind === "ObjectTypeDefinition"
+    ).length;
+    queryFields = countFieldsForType(doc.definitions, "Query");
+    mutationFields = countFieldsForType(doc.definitions, "Mutation");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Schema cached for environment "${name}" (source: ${env.schemaSource ?? "introspection"}) could not be parsed: ${message}`
+    );
+  }
 
   return { name, typeCount, queryFields, mutationFields };
 }
