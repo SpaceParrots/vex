@@ -1,3 +1,5 @@
+/** @module commands/env — CLI subcommands for managing Vendure environments (add, list, switch, remove, set, show). */
+
 import { Command } from "commander";
 import {
   addEnvironment,
@@ -7,8 +9,9 @@ import {
   listEnvironments,
   showEnvironment,
 } from "../services/env.js";
-import { printJson, printSuccess, printTable, handleError } from "../output.js";
+import { printJson, printSuccess, printInfo, printTable, handleError } from "../output.js";
 
+/** Creates the `vex env` command group with add, list, switch, remove, set, and show subcommands. */
 export function createEnvCommand(): Command {
   const env = new Command("env").description("Manage Vendure environments");
 
@@ -49,7 +52,7 @@ export function createEnvCommand(): Command {
         const { active, environments } = await listEnvironments();
         const entries = Object.entries(environments);
         if (entries.length === 0) {
-          console.log("No environments configured. Use `vex env add` to create one.");
+          printInfo("No environments configured. Use `vex env add` to create one.");
           return;
         }
         printTable(

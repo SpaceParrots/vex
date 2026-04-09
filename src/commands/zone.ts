@@ -1,3 +1,5 @@
+/** @module commands/zone — CLI subcommands for zone and country management (list, get, create, update, delete, add/remove-members, create-country, countries). */
+
 import { Command } from "commander";
 import {
   listZones,
@@ -12,6 +14,7 @@ import {
 } from "../services/zones.js";
 import { printJson, printSuccess, handleError } from "../output.js";
 
+/** Creates the `vex zone` command group with zone and country subcommands. */
 export function createZoneCommand(): Command {
   const zone = new Command("zone").description("Zone operations");
 

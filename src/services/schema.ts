@@ -1,6 +1,15 @@
+/**
+ * @module services/schema
+ *
+ * Service layer for schema operations. Wraps {@link refetchSchema} from the
+ * infrastructure layer and provides summary statistics about the fetched schema.
+ */
+
+import { parse, type DefinitionNode } from "graphql";
 import { getActiveEnv, loadConfig } from "../config.js";
 import { refetchSchema } from "../schema.js";
 
+/** Result returned after fetching and analyzing a schema. */
 export interface SchemaFetchResult {
   readonly name: string;
   readonly typeCount: number;
@@ -8,6 +17,12 @@ export interface SchemaFetchResult {
   readonly mutationFields: number;
 }
 
+/**
+ * Fetches the schema for the given (or active) environment and returns
+ * summary statistics: type count, query field count, and mutation field count.
+ *
+ * @param environment - Target environment name. Defaults to the active environment.
+ */
 export async function fetchSchemaForEnv(environment?: string): Promise<SchemaFetchResult> {
   let name: string;
   let env;
@@ -28,18 +43,29 @@ export async function fetchSchemaForEnv(environment?: string): Promise<SchemaFet
 
   const sdl = await refetchSchema(env, name);
 
-  const typeMatches = sdl.match(/^type\s+\w+/gm);
-  const typeCount = typeMatches?.length ?? 0;
+  try {
+    const doc = parse(sdl);
+    const typeCount = doc.definitions.filter(
+      (d) => d.kind === "ObjectTypeDefinition"
+    ).length;
+    const queryFields = countFieldsForType(doc.definitions, "Query");
+    const mutationFields = countFieldsForType(doc.definitions, "Mutation");
+    return { name, typeCount, queryFields, mutationFields };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Schema cached for environment "${name}" (source: ${env.schemaSource ?? "introspection"}) could not be parsed: ${message}`
+    );
+  }
+}
 
-  const queryMatch = sdl.match(/type Query \{([^}]*)\}/s);
-  const queryFields = queryMatch
-    ? queryMatch[1].split("\n").filter((l) => l.trim() && !l.trim().startsWith("#")).length
-    : 0;
-
-  const mutationMatch = sdl.match(/type Mutation \{([^}]*)\}/s);
-  const mutationFields = mutationMatch
-    ? mutationMatch[1].split("\n").filter((l) => l.trim() && !l.trim().startsWith("#")).length
-    : 0;
-
-  return { name, typeCount, queryFields, mutationFields };
+/** Counts the number of fields on a named object type definition within the parsed schema. */
+function countFieldsForType(definitions: readonly DefinitionNode[], typeName: string): number {
+  const typeDef = definitions.find(
+    (d) => d.kind === "ObjectTypeDefinition" && d.name.value === typeName
+  );
+  if (typeDef && "fields" in typeDef) {
+    return typeDef.fields?.length ?? 0;
+  }
+  return 0;
 }

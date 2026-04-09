@@ -1,3 +1,5 @@
+/** @module tools/products — MCP tools for product management (list, get, create, update, delete, create-variants). */
+
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
@@ -8,14 +10,12 @@ import {
   deleteProduct,
   createProductVariants,
 } from "../services/products.js";
+import { jsonContent } from "../output.js";
 
-function jsonContent(data: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
-}
-
+/** Registers all `vex_*_product*` MCP tools for product operations. */
 export function registerProductTools(server: McpServer): void {
   server.tool(
-    "vendure_get_products",
+    "vex_get_products",
     "List products with optional filters.",
     {
       take: z.number().optional().describe("Number of results to return"),
@@ -26,14 +26,14 @@ export function registerProductTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_get_product",
+    "vex_get_product",
     "Get a single product by ID with variants, options, and facet values.",
     { id: z.string().describe("Product ID") },
     async (input) => jsonContent(await getProduct(input.id))
   );
 
   server.tool(
-    "vendure_create_product",
+    "vex_create_product",
     "Create a new product.",
     {
       name: z.string().describe("Product name"),
@@ -45,7 +45,7 @@ export function registerProductTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_update_product",
+    "vex_update_product",
     "Update an existing product.",
     {
       id: z.string().describe("Product ID"),
@@ -58,14 +58,14 @@ export function registerProductTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_delete_product",
+    "vex_delete_product",
     "Delete a product by ID.",
     { id: z.string().describe("Product ID") },
     async (input) => jsonContent(await deleteProduct(input.id))
   );
 
   server.tool(
-    "vendure_create_product_variants",
+    "vex_create_product_variants",
     "Create variants for an existing product.",
     {
       productId: z.string().describe("Product ID to create variants for"),

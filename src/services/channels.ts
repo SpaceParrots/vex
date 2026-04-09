@@ -1,14 +1,22 @@
-import { getActiveEnv } from "../config.js";
-import { createClient } from "../client.js";
+/**
+ * @module services/channels
+ *
+ * Channel operations for the Vendure Admin API.
+ * Channels define storefronts with their own currency, language, tax, and shipping defaults.
+ */
 
+import { getClient } from "../client.js";
+import { DEFAULT_PAGE_SIZE, DEFAULT_SKIP } from "../constants.js";
+
+/** Pagination options for listing channels. */
 export interface ChannelListInput {
   readonly take?: number;
   readonly skip?: number;
 }
 
+/** Lists channels with pagination. */
 export async function listChannels(input: ChannelListInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `query GetChannels($options: ChannelListOptions) {
@@ -32,16 +40,16 @@ export async function listChannels(input: ChannelListInput): Promise<unknown> {
     }`,
     {
       options: {
-        take: input.take ?? 20,
-        skip: input.skip ?? 0,
+        take: input.take ?? DEFAULT_PAGE_SIZE,
+        skip: input.skip ?? DEFAULT_SKIP,
       },
     }
   );
 }
 
+/** Retrieves a single channel by ID with full configuration details. */
 export async function getChannel(id: string): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `query GetChannel($id: ID!) {
@@ -68,9 +76,9 @@ export async function getChannel(id: string): Promise<unknown> {
   );
 }
 
+/** Retrieves the currently active channel with full configuration details. */
 export async function getActiveChannel(): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `query GetActiveChannel {
@@ -96,6 +104,7 @@ export async function getActiveChannel(): Promise<unknown> {
   );
 }
 
+/** Input for updating channel defaults. Only provided fields are changed. */
 export interface UpdateChannelInput {
   readonly id: string;
   readonly defaultTaxZoneId?: string;
@@ -107,18 +116,17 @@ export interface UpdateChannelInput {
   readonly outOfStockThreshold?: number;
 }
 
+/** Updates channel settings. Only defined fields in the input are sent. */
 export async function updateChannel(input: UpdateChannelInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
-  const updateInput: Record<string, unknown> = { id: input.id };
-  if (input.defaultTaxZoneId !== undefined) updateInput.defaultTaxZoneId = input.defaultTaxZoneId;
-  if (input.defaultShippingZoneId !== undefined) updateInput.defaultShippingZoneId = input.defaultShippingZoneId;
-  if (input.defaultLanguageCode !== undefined) updateInput.defaultLanguageCode = input.defaultLanguageCode;
-  if (input.defaultCurrencyCode !== undefined) updateInput.defaultCurrencyCode = input.defaultCurrencyCode;
-  if (input.pricesIncludeTax !== undefined) updateInput.pricesIncludeTax = input.pricesIncludeTax;
-  if (input.trackInventory !== undefined) updateInput.trackInventory = input.trackInventory;
-  if (input.outOfStockThreshold !== undefined) updateInput.outOfStockThreshold = input.outOfStockThreshold;
+  const { id, ...fields } = input;
+  const updateInput: Record<string, unknown> = { id };
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined) {
+      updateInput[key] = value;
+    }
+  }
 
   return client.request(
     `mutation UpdateChannel($input: UpdateChannelInput!) {

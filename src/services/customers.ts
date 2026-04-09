@@ -1,6 +1,14 @@
-import { getActiveEnv } from "../config.js";
-import { createClient } from "../client.js";
+/**
+ * @module services/customers
+ *
+ * Customer management operations for the Vendure Admin API.
+ * Supports listing, creating, updating, deleting customers, and adding notes.
+ */
 
+import { getClient } from "../client.js";
+import { DEFAULT_PAGE_SIZE, DEFAULT_SKIP } from "../constants.js";
+
+/** Options for listing customers with optional email/name filters. */
 export interface CustomerListInput {
   readonly take?: number;
   readonly skip?: number;
@@ -8,9 +16,9 @@ export interface CustomerListInput {
   readonly filterByName?: string;
 }
 
+/** Lists customers with optional email and last-name filters. */
 export async function listCustomers(input: CustomerListInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   const filter: Record<string, unknown> = {};
   if (input.filterByEmail) {
@@ -37,17 +45,17 @@ export async function listCustomers(input: CustomerListInput): Promise<unknown> 
     }`,
     {
       options: {
-        take: input.take ?? 20,
-        skip: input.skip ?? 0,
+        take: input.take ?? DEFAULT_PAGE_SIZE,
+        skip: input.skip ?? DEFAULT_SKIP,
         ...(Object.keys(filter).length > 0 && { filter }),
       },
     }
   );
 }
 
+/** Retrieves a single customer by ID with addresses and order history. */
 export async function getCustomer(id: string): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `query GetCustomer($id: ID!) {
@@ -88,6 +96,7 @@ export async function getCustomer(id: string): Promise<unknown> {
   );
 }
 
+/** Input for creating a new customer. */
 export interface CreateCustomerInput {
   readonly emailAddress: string;
   readonly firstName: string;
@@ -96,9 +105,9 @@ export interface CreateCustomerInput {
   readonly title?: string;
 }
 
+/** Creates a new customer. Returns the customer or an ErrorResult. */
 export async function createCustomer(input: CreateCustomerInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation CreateCustomer($input: CreateCustomerInput!) {
@@ -128,6 +137,7 @@ export async function createCustomer(input: CreateCustomerInput): Promise<unknow
   );
 }
 
+/** Input for updating an existing customer. Only provided fields are changed. */
 export interface UpdateCustomerInput {
   readonly id: string;
   readonly emailAddress?: string;
@@ -136,9 +146,9 @@ export interface UpdateCustomerInput {
   readonly phoneNumber?: string;
 }
 
+/** Updates an existing customer. Only defined fields in the input are sent. */
 export async function updateCustomer(input: UpdateCustomerInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   const { id, ...fields } = input;
   const updateInput: Record<string, unknown> = { id };
@@ -168,9 +178,9 @@ export async function updateCustomer(input: UpdateCustomerInput): Promise<unknow
   );
 }
 
+/** Deletes a customer by ID. */
 export async function deleteCustomer(id: string): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation DeleteCustomer($id: ID!) {
@@ -183,15 +193,16 @@ export async function deleteCustomer(id: string): Promise<unknown> {
   );
 }
 
+/** Input for adding a note to a customer. */
 export interface AddCustomerNoteInput {
   readonly id: string;
   readonly note: string;
   readonly isPublic?: boolean;
 }
 
+/** Adds a note to a customer. Notes default to private (`isPublic: false`). */
 export async function addCustomerNote(input: AddCustomerNoteInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation AddNoteToCustomer($input: AddNoteToCustomerInput!) {
@@ -203,6 +214,7 @@ export async function addCustomerNote(input: AddCustomerNoteInput): Promise<unkn
       input: {
         id: input.id,
         note: input.note,
+        // Notes are private by default — only visible to admins unless explicitly shared
         isPublic: input.isPublic ?? false,
       },
     }

@@ -1,15 +1,24 @@
-import { getActiveEnv } from "../config.js";
-import { createClient } from "../client.js";
+/**
+ * @module services/orders
+ *
+ * Order management operations for the Vendure Admin API.
+ * Supports listing, retrieving, creating draft orders, adding items,
+ * setting customers, transitioning state, and cancelling.
+ */
 
+import { getClient } from "../client.js";
+import { DEFAULT_PAGE_SIZE, DEFAULT_SKIP } from "../constants.js";
+
+/** Options for filtering and paginating the order list. */
 export interface OrderListInput {
   readonly take?: number;
   readonly skip?: number;
   readonly filterByCode?: string;
 }
 
+/** List orders with optional code filter and pagination. */
 export async function listOrders(input: OrderListInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   const filter: Record<string, unknown> = {};
   if (input.filterByCode) {
@@ -40,17 +49,17 @@ export async function listOrders(input: OrderListInput): Promise<unknown> {
     }`,
     {
       options: {
-        take: input.take ?? 20,
-        skip: input.skip ?? 0,
+        take: input.take ?? DEFAULT_PAGE_SIZE,
+        skip: input.skip ?? DEFAULT_SKIP,
         ...(Object.keys(filter).length > 0 && { filter }),
       },
     }
   );
 }
 
+/** Retrieve a single order by ID, including lines, payments, and fulfillments. */
 export async function getOrder(id: string): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `query GetOrder($id: ID!) {
@@ -113,9 +122,9 @@ export async function getOrder(id: string): Promise<unknown> {
   );
 }
 
+/** Create a new empty draft order. */
 export async function createDraftOrder(): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation CreateDraftOrder {
@@ -128,15 +137,16 @@ export async function createDraftOrder(): Promise<unknown> {
   );
 }
 
+/** Input for adding a product variant to a draft order. */
 export interface AddItemInput {
   readonly orderId: string;
   readonly productVariantId: string;
   readonly quantity: number;
 }
 
+/** Add a product variant line item to an existing draft order. */
 export async function addItemToDraftOrder(input: AddItemInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation AddItemToDraftOrder($orderId: ID!, $input: AddItemToDraftOrderInput!) {
@@ -169,14 +179,15 @@ export async function addItemToDraftOrder(input: AddItemInput): Promise<unknown>
   );
 }
 
+/** Input for assigning a customer to a draft order. */
 export interface SetCustomerInput {
   readonly orderId: string;
   readonly customerId: string;
 }
 
+/** Assign an existing customer to a draft order. */
 export async function setCustomerForDraftOrder(input: SetCustomerInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation SetCustomerForDraftOrder($orderId: ID!, $customerId: ID!) {
@@ -204,14 +215,18 @@ export async function setCustomerForDraftOrder(input: SetCustomerInput): Promise
   );
 }
 
+/** Input for transitioning an order to a new state. */
 export interface TransitionOrderInput {
   readonly id: string;
   readonly state: string;
 }
 
+/**
+ * Transition an order to a new state in the Vendure order state machine.
+ * Returns an `OrderStateTransitionError` if the transition is not allowed.
+ */
 export async function transitionOrder(input: TransitionOrderInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation TransitionOrder($id: ID!, $state: String!) {
@@ -234,14 +249,15 @@ export async function transitionOrder(input: TransitionOrderInput): Promise<unkn
   );
 }
 
+/** Input for cancelling an order with an optional reason. */
 export interface CancelOrderInput {
   readonly id: string;
   readonly reason?: string;
 }
 
+/** Cancel an order, optionally providing a reason for the cancellation. */
 export async function cancelOrder(input: CancelOrderInput): Promise<unknown> {
-  const { env } = await getActiveEnv();
-  const client = createClient(env);
+  const client = await getClient();
 
   return client.request(
     `mutation CancelOrder($input: CancelOrderInput!) {

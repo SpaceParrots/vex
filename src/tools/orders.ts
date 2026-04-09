@@ -1,3 +1,5 @@
+/** @module tools/orders — MCP tools for order management (list, get, create-draft, add-item, set-customer, transition, cancel). */
+
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
@@ -9,14 +11,12 @@ import {
   transitionOrder,
   cancelOrder,
 } from "../services/orders.js";
+import { jsonContent } from "../output.js";
 
-function jsonContent(data: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
-}
-
+/** Registers all `vex_*_order*` MCP tools for order operations. */
 export function registerOrderTools(server: McpServer): void {
   server.tool(
-    "vendure_get_orders",
+    "vex_get_orders",
     "List orders with optional filters.",
     {
       take: z.number().optional().describe("Number of results to return"),
@@ -27,21 +27,21 @@ export function registerOrderTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_get_order",
+    "vex_get_order",
     "Get a single order by ID with full details.",
     { id: z.string().describe("Order ID") },
     async (input) => jsonContent(await getOrder(input.id))
   );
 
   server.tool(
-    "vendure_create_draft_order",
+    "vex_create_draft_order",
     "Create a new draft order.",
     {},
     async () => jsonContent(await createDraftOrder())
   );
 
   server.tool(
-    "vendure_add_item_to_draft_order",
+    "vex_add_item_to_draft_order",
     "Add a product variant to a draft order.",
     {
       orderId: z.string().describe("Draft order ID"),
@@ -52,7 +52,7 @@ export function registerOrderTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_set_customer_for_draft_order",
+    "vex_set_customer_for_draft_order",
     "Set the customer for a draft order.",
     {
       orderId: z.string().describe("Draft order ID"),
@@ -62,7 +62,7 @@ export function registerOrderTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_transition_order",
+    "vex_transition_order",
     "Transition an order to a new state.",
     {
       id: z.string().describe("Order ID"),
@@ -72,7 +72,7 @@ export function registerOrderTools(server: McpServer): void {
   );
 
   server.tool(
-    "vendure_cancel_order",
+    "vex_cancel_order",
     "Cancel an order.",
     {
       id: z.string().describe("Order ID"),

@@ -1,3 +1,5 @@
+/** @module commands/product — CLI subcommands for product management (list, get, create, update, delete, add-variants). */
+
 import { Command } from "commander";
 import {
   listProducts,
@@ -9,6 +11,7 @@ import {
 } from "../services/products.js";
 import { printJson, printSuccess, handleError } from "../output.js";
 
+/** Creates the `vex product` command group with list, get, create, update, delete, and add-variants subcommands. */
 export function createProductCommand(): Command {
   const product = new Command("product").description("Product operations");
 

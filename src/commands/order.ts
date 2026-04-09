@@ -1,3 +1,5 @@
+/** @module commands/order — CLI subcommands for order management (list, get, create-draft, add-item, set-customer, transition, cancel). */
+
 import { Command } from "commander";
 import {
   listOrders,
@@ -8,8 +10,9 @@ import {
   transitionOrder,
   cancelOrder,
 } from "../services/orders.js";
-import { printJson, printSuccess, handleError } from "../output.js";
+import { printJson, handleError } from "../output.js";
 
+/** Creates the `vex order` command group with list, get, create-draft, add-item, set-customer, transition, and cancel subcommands. */
 export function createOrderCommand(): Command {
   const order = new Command("order").description("Order operations");
 

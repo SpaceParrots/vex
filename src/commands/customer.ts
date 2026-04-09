@@ -1,3 +1,5 @@
+/** @module commands/customer — CLI subcommands for customer management (list, get, create, update, delete, add-note). */
+
 import { Command } from "commander";
 import {
   listCustomers,
@@ -9,6 +11,7 @@ import {
 } from "../services/customers.js";
 import { printJson, printSuccess, handleError } from "../output.js";
 
+/** Creates the `vex customer` command group with list, get, create, update, delete, and add-note subcommands. */
 export function createCustomerCommand(): Command {
   const customer = new Command("customer").description("Customer operations");
 

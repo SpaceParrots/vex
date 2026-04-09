@@ -1,3 +1,5 @@
+/** @module commands/tax — CLI subcommands for tax category and tax rate management. */
+
 import { Command } from "commander";
 import {
   listTaxCategories,
@@ -12,6 +14,7 @@ import {
 } from "../services/tax.js";
 import { printJson, printSuccess, handleError } from "../output.js";
 
+/** Creates the `vex tax` command group with category and rate subcommands. */
 export function createTaxCommand(): Command {
   const tax = new Command("tax").description("Tax operations");
 

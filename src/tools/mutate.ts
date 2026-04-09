@@ -1,10 +1,13 @@
+/** @module tools/mutate — MCP tool for executing arbitrary GraphQL mutations. */
+
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { executeMutation } from "../services/query.js";
 
+/** Registers the `vex_mutate` MCP tool with error-aware response handling. */
 export function registerMutateTool(server: McpServer): void {
   server.tool(
-    "vendure_mutate",
+    "vex_mutate",
     "Execute a GraphQL mutation against the active Vendure Admin API environment.",
     {
       mutation: z.string().describe("GraphQL mutation string"),

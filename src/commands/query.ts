@@ -1,7 +1,10 @@
+/** @module commands/query — CLI command for executing raw GraphQL queries. */
+
 import { Command } from "commander";
 import { executeQuery } from "../services/query.js";
 import { printJson, handleError } from "../output.js";
 
+/** Creates the `vex query` command for executing arbitrary GraphQL queries. */
 export function createQueryCommand(): Command {
   return new Command("query")
     .description("Execute a GraphQL query")
