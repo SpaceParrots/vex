@@ -43,25 +43,20 @@ export async function fetchSchemaForEnv(environment?: string): Promise<SchemaFet
 
   const sdl = await refetchSchema(env, name);
 
-  let typeCount = 0;
-  let queryFields = 0;
-  let mutationFields = 0;
-
   try {
     const doc = parse(sdl);
-    typeCount = doc.definitions.filter(
+    const typeCount = doc.definitions.filter(
       (d) => d.kind === "ObjectTypeDefinition"
     ).length;
-    queryFields = countFieldsForType(doc.definitions, "Query");
-    mutationFields = countFieldsForType(doc.definitions, "Mutation");
+    const queryFields = countFieldsForType(doc.definitions, "Query");
+    const mutationFields = countFieldsForType(doc.definitions, "Mutation");
+    return { name, typeCount, queryFields, mutationFields };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(
       `Schema cached for environment "${name}" (source: ${env.schemaSource ?? "introspection"}) could not be parsed: ${message}`
     );
   }
-
-  return { name, typeCount, queryFields, mutationFields };
 }
 
 /** Counts the number of fields on a named object type definition within the parsed schema. */
