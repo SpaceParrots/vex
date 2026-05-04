@@ -117,7 +117,8 @@ function validateSelectionAgainst(
       }
       validateSelectionAgainst(t, sel.selectionSet, schema, `${pathPrefix}(${tName})`);
     }
-    // FragmentSpread handled by the loader in Task 11.
+    // FragmentSpread is intentionally unchecked here — the loader resolves spreads at
+    // load time, so a spread to a fragment that does not yet exist is not a save-time error.
   }
 }
 
@@ -243,7 +244,7 @@ export async function loadFragment(input: LoadFragmentInput): Promise<Selection>
         throw new Error(`Fragment "${name}" is on "${onType}" which is not an object/interface.`);
       }
 
-      const sel = await selectionSetToSelection(t, def.selectionSet, input.schema, resolve);
+      const sel = await selectionSetToSelection(t, def.selectionSet, resolve);
       selectionCache.set(cacheKey, sel);
       return sel;
     } finally {
@@ -257,7 +258,6 @@ export async function loadFragment(input: LoadFragmentInput): Promise<Selection>
 async function selectionSetToSelection(
   parent: GraphQLObjectType | GraphQLInterfaceType,
   set: SelectionSetNode,
-  schema: GraphQLSchema,
   resolveSpread: (name: string) => Promise<Selection>
 ): Promise<Selection> {
   const fields: Record<string, Selection> = {};
@@ -278,12 +278,7 @@ async function selectionSetToSelection(
       if (sel.selectionSet) {
         const inner = unwrapToNamed(fieldDef.type);
         if (inner instanceof GraphQLObjectType || inner instanceof GraphQLInterfaceType) {
-          fields[fieldName] = await selectionSetToSelection(
-            inner,
-            sel.selectionSet,
-            schema,
-            resolveSpread
-          );
+          fields[fieldName] = await selectionSetToSelection(inner, sel.selectionSet, resolveSpread);
         } else {
           throw new Error(
             `Field "${fieldName}" on "${parent.name}" has no selectable inner object/interface type.`
@@ -298,7 +293,10 @@ async function selectionSetToSelection(
       if (resolved.kind !== "object") {
         throw new Error(`Fragment "${refName}" did not resolve to an object selection.`);
       }
-      // Inline merge: spread's fields become part of parent's fields. Existing keys win.
+      // First-writer-wins merge: a directly-selected field on the parent takes precedence
+      // over the same field from a spread. Acceptable for v1 because both selections
+      // produce structurally identical scalar leaves; revisit if nested object selections
+      // ever conflict between parent and spread.
       for (const [k, v] of Object.entries(resolved.fields)) {
         if (!(k in fields)) fields[k] = v;
       }

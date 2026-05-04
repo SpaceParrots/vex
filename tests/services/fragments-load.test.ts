@@ -93,4 +93,22 @@ describe("loadFragment", () => {
     );
     await expect(loadFragment({ envName: "e", name: "Lonely", schema })).rejects.toThrow(/Missing/);
   });
+
+  it("returns the cached selection on subsequent calls (does not re-read disk)", async () => {
+    const schema = parseSchemaFromSdl("e", fixture);
+    await saveFragment({
+      envName: "e",
+      name: "Cached",
+      sdl: `fragment Cached on Customer { id }`,
+      schema,
+    });
+    const first = await loadFragment({ envName: "e", name: "Cached", schema });
+
+    // Delete the file on disk; a cache miss would now throw "not found".
+    const fs = await import("node:fs/promises");
+    await fs.unlink(join(tmp, "e", "Cached.graphql"));
+
+    const second = await loadFragment({ envName: "e", name: "Cached", schema });
+    expect(second).toBe(first);
+  });
 });
