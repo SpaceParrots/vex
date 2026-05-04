@@ -29,14 +29,14 @@ export function registerSchemaIntrospectionTools(server: McpServer): void {
     },
     async ({ typeName, depth }) => {
       const schema = await loadParsedSchema();
-      const sdl = describeType(schema, typeName, (depth ?? 1) as 1 | 2);
+      const sdl = describeType(schema, typeName, depth ?? 1);
       return { content: [{ type: "text" as const, text: sdl }] };
     }
   );
 
   server.tool(
     "vex_list_custom_fields",
-    "List the custom fields configured on a Vendure entity (e.g. CustomerCustomFields). Returns null when none.",
+    "List the custom fields configured on a Vendure entity (e.g. 'Customer', 'Product', 'Order'). Returns null when the entity has no typed customFields block.",
     {
       typeName: z.string().describe("Entity type name (e.g. 'Customer', 'Product', 'Order')."),
     },

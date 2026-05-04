@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -13,9 +13,12 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = readFileSync(join(__dirname, "../fixtures/schema.graphql"), "utf-8");
 
+beforeEach(() => {
+  clearSchemaCache();
+});
+
 describe("describeType", () => {
   it("returns SDL for a type and its directly referenced types", () => {
-    clearSchemaCache();
     const s = parseSchemaFromSdl("d1", fixture);
     const out = describeType(s, "Customer", 1);
     expect(out).toContain("type Customer");
@@ -23,8 +26,16 @@ describe("describeType", () => {
     expect(out).toContain("type Address");
   });
 
+  it("expands two layers of references at depth 2", () => {
+    const s = parseSchemaFromSdl("d1b", fixture);
+    const depth1 = describeType(s, "Customer", 1);
+    const depth2 = describeType(s, "Customer", 2);
+    // Country is reachable from Customer via Address.country — two hops.
+    expect(depth1).not.toContain("type Country");
+    expect(depth2).toContain("type Country");
+  });
+
   it("excludes built-in scalars", () => {
-    clearSchemaCache();
     const s = parseSchemaFromSdl("d2", fixture);
     const out = describeType(s, "Country", 1);
     expect(out).not.toContain("scalar String");
@@ -32,7 +43,6 @@ describe("describeType", () => {
   });
 
   it("throws when the type is unknown", () => {
-    clearSchemaCache();
     const s = parseSchemaFromSdl("d3", fixture);
     expect(() => describeType(s, "Nope", 1)).toThrow(/Nope/);
   });
@@ -40,7 +50,6 @@ describe("describeType", () => {
 
 describe("listCustomFields", () => {
   it("returns custom fields for Customer", () => {
-    clearSchemaCache();
     const s = parseSchemaFromSdl("c1", fixture);
     const out = listCustomFields(s, "Customer");
     expect(out.customFields).not.toBeNull();
@@ -48,7 +57,6 @@ describe("listCustomFields", () => {
   });
 
   it("returns null when type has no customFields", () => {
-    clearSchemaCache();
     const s = parseSchemaFromSdl("c2", fixture);
     const out = listCustomFields(s, "Country");
     expect(out.customFields).toBeNull();
@@ -58,7 +66,6 @@ describe("listCustomFields", () => {
 
 describe("listOperations", () => {
   it("lists all queries and mutations by default", () => {
-    clearSchemaCache();
     const s = parseSchemaFromSdl("o1", fixture);
     const all = listOperations(s);
     expect(all.find((o) => o.name === "customers")?.kind).toBe("query");
@@ -66,7 +73,6 @@ describe("listOperations", () => {
   });
 
   it("filters by kind and substring", () => {
-    clearSchemaCache();
     const s = parseSchemaFromSdl("o2", fixture);
     const onlyQ = listOperations(s, { kind: "query" });
     expect(onlyQ.every((o) => o.kind === "query")).toBe(true);
@@ -77,7 +83,6 @@ describe("listOperations", () => {
 
 describe("describeOperation", () => {
   it("returns SDL for an operation and its referenced types", () => {
-    clearSchemaCache();
     const s = parseSchemaFromSdl("op1", fixture);
     const out = describeOperation(s, "customers");
     expect(out).toContain("customers(options: CustomerListOptions): CustomerList!");
@@ -86,7 +91,6 @@ describe("describeOperation", () => {
   });
 
   it("throws when the operation does not exist", () => {
-    clearSchemaCache();
     const s = parseSchemaFromSdl("op2", fixture);
     expect(() => describeOperation(s, "nope")).toThrow(/nope/i);
   });

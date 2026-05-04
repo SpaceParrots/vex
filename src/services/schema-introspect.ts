@@ -61,7 +61,6 @@ export function describeType(schema: GraphQLSchema, name: string, depth: 1 | 2 =
       }
     }
   }
-  // Bug 1 fix: start at depth 0 so depth=1 expands one layer of references.
   visit(root, 0);
   return out.join("\n\n");
 }
