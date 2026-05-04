@@ -40,6 +40,7 @@ export interface VexConfig {
 const CONFIG_DIR = join(homedir(), ".vendure-vex");
 const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 const SCHEMAS_DIR = join(CONFIG_DIR, "schemas");
+const FRAGMENTS_DIR = join(CONFIG_DIR, "fragments");
 
 function emptyConfig(): VexConfig {
   return { activeEnvironment: "", environments: {} };
@@ -194,9 +195,11 @@ export function getSchemaPath(envName: string): string {
   return join(SCHEMAS_DIR, `${envName}.graphql`);
 }
 
-const FRAGMENTS_DIR = join(CONFIG_DIR, "fragments");
-
-/** Returns the directory where fragments for the given environment are stored. */
+/**
+ * Returns the directory where fragments for the given environment are stored.
+ * The per-environment subdirectory is not pre-created — callers writing to it
+ * must `mkdir(..., { recursive: true })` first.
+ */
 export function getFragmentsDir(envName: string): string {
   return join(FRAGMENTS_DIR, envName);
 }
