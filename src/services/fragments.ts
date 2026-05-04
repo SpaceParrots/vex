@@ -22,6 +22,7 @@ import {
   type SelectionSetNode,
 } from "graphql";
 import { getFragmentsDir } from "../config.js";
+import type { Selection } from "../schema-model/types.js";
 
 let rootOverride: string | null = null;
 
@@ -196,4 +197,115 @@ export async function listFragments(input: ListFragmentsInput): Promise<readonly
     }
   }
   return out;
+}
+
+/* ------------------------------- load -------------------------------- */
+
+const selectionCache = new Map<string, Selection>(); // key: `${envName}|${name}`
+
+export function clearFragmentCache(): void {
+  selectionCache.clear();
+}
+
+export interface LoadFragmentInput {
+  readonly envName: string;
+  readonly name: string;
+  readonly schema: GraphQLSchema;
+}
+
+async function readFragmentSdl(envName: string, name: string): Promise<string> {
+  const path = join(envDir(envName), `${name}.graphql`);
+  if (!existsSync(path)) {
+    throw new Error(`Fragment "${name}" not found at ${path}.`);
+  }
+  return readFile(path, "utf-8");
+}
+
+/** Loads and parses a fragment, resolving spreads recursively, with cycle detection. */
+export async function loadFragment(input: LoadFragmentInput): Promise<Selection> {
+  const visiting: string[] = [];
+
+  async function resolve(name: string): Promise<Selection> {
+    const cacheKey = `${input.envName}|${name}`;
+    const cached = selectionCache.get(cacheKey);
+    if (cached) return cached;
+    if (visiting.includes(name)) {
+      throw new Error(`Fragment cycle detected: ${[...visiting, name].join(" -> ")}`);
+    }
+    visiting.push(name);
+    try {
+      const sdl = await readFragmentSdl(input.envName, name);
+      const doc = parse(sdl);
+      const def = extractFragmentDef(doc);
+      const onType = def.typeCondition.name.value;
+      const t = input.schema.getType(onType);
+      if (!(t instanceof GraphQLObjectType) && !(t instanceof GraphQLInterfaceType)) {
+        throw new Error(`Fragment "${name}" is on "${onType}" which is not an object/interface.`);
+      }
+
+      const sel = await selectionSetToSelection(t, def.selectionSet, input.schema, resolve);
+      selectionCache.set(cacheKey, sel);
+      return sel;
+    } finally {
+      visiting.pop();
+    }
+  }
+
+  return resolve(input.name);
+}
+
+async function selectionSetToSelection(
+  parent: GraphQLObjectType | GraphQLInterfaceType,
+  set: SelectionSetNode,
+  schema: GraphQLSchema,
+  resolveSpread: (name: string) => Promise<Selection>
+): Promise<Selection> {
+  const fields: Record<string, Selection> = {};
+
+  for (const sel of set.selections) {
+    if (sel.kind === "Field") {
+      const fieldName = sel.name.value;
+      if (fieldName === "__typename") {
+        fields[fieldName] = { kind: "scalar" };
+        continue;
+      }
+      const fieldDef = parent.getFields()[fieldName];
+      if (!fieldDef) {
+        throw new Error(
+          `Field "${fieldName}" missing on "${parent.name}" — schema may have changed; run vex schema refetch.`
+        );
+      }
+      if (sel.selectionSet) {
+        const inner = unwrapToNamed(fieldDef.type);
+        if (inner instanceof GraphQLObjectType || inner instanceof GraphQLInterfaceType) {
+          fields[fieldName] = await selectionSetToSelection(
+            inner,
+            sel.selectionSet,
+            schema,
+            resolveSpread
+          );
+        } else {
+          throw new Error(
+            `Field "${fieldName}" on "${parent.name}" has no selectable inner object/interface type.`
+          );
+        }
+      } else {
+        fields[fieldName] = { kind: "scalar" };
+      }
+    } else if (sel.kind === "FragmentSpread") {
+      const refName = sel.name.value;
+      const resolved = await resolveSpread(refName);
+      if (resolved.kind !== "object") {
+        throw new Error(`Fragment "${refName}" did not resolve to an object selection.`);
+      }
+      // Inline merge: spread's fields become part of parent's fields. Existing keys win.
+      for (const [k, v] of Object.entries(resolved.fields)) {
+        if (!(k in fields)) fields[k] = v;
+      }
+    } else {
+      throw new Error("Inline fragments inside saved fragment files are not supported in v1.");
+    }
+  }
+
+  return { kind: "object", fields };
 }
