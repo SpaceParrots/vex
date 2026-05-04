@@ -66,8 +66,8 @@ export function isListOptionsInput(type: GraphQLNamedType | null | undefined): b
 /** True when the field type is a non-null `String!`. */
 function isReqStringField(t: unknown): boolean {
   if (!(t instanceof GraphQLNonNull)) return false;
-  const inner = t.ofType as { name?: string };
-  return inner.name === "String";
+  const inner = t.ofType;
+  return inner instanceof GraphQLScalarType && inner.name === "String";
 }
 
 /** True when the object type implements `ErrorResult` or has `errorCode: String!` + `message: String!`. */

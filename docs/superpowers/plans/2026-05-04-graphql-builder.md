@@ -751,8 +751,8 @@ Append the following code block to the end of `src/schema-model/classify.ts`. Do
 /** True when the object type implements `ErrorResult` or has `errorCode: String!` + `message: String!`. */
 function isReqStringField(t: unknown): boolean {
   if (!(t instanceof GraphQLNonNull)) return false;
-  const inner = t.ofType as { name?: string };
-  return inner.name === "String";
+  const inner = t.ofType;
+  return inner instanceof GraphQLScalarType && inner.name === "String";
 }
 
 function isErrorBranch(t: GraphQLObjectType): boolean {
