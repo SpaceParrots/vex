@@ -19,7 +19,6 @@ import {
   type DocumentNode,
   type FragmentDefinitionNode,
   type GraphQLSchema,
-  type FieldNode,
   type SelectionSetNode,
 } from "graphql";
 import { getFragmentsDir } from "../config.js";
@@ -79,8 +78,7 @@ function validateSelectionAgainst(
 ): void {
   for (const sel of selectionSet.selections) {
     if (sel.kind === "Field") {
-      const f = sel as FieldNode;
-      const fieldName = f.name.value;
+      const fieldName = sel.name.value;
       if (fieldName === "__typename") continue;
 
       if (parentType instanceof GraphQLUnionType) {
@@ -95,14 +93,14 @@ function validateSelectionAgainst(
           `Field "${fieldName}" does not exist on type "${parentType.name}" at ${pathPrefix}.`
         );
       }
-      if (f.selectionSet) {
+      if (sel.selectionSet) {
         const inner = unwrapToNamed(fieldDef.type);
         if (
           inner instanceof GraphQLObjectType ||
           inner instanceof GraphQLInterfaceType ||
           inner instanceof GraphQLUnionType
         ) {
-          validateSelectionAgainst(inner, f.selectionSet, schema, `${pathPrefix}.${fieldName}`);
+          validateSelectionAgainst(inner, sel.selectionSet, schema, `${pathPrefix}.${fieldName}`);
         }
       }
     } else if (sel.kind === "InlineFragment") {
@@ -168,8 +166,10 @@ export interface ListFragmentsInput {
 }
 
 async function readMeta(filePath: string): Promise<FragmentMeta | null> {
+  // Filesystem errors propagate; only parse / shape errors yield null so that
+  // a malformed file is silently skipped while a disk error surfaces to the user.
+  const sdl = await readFile(filePath, "utf-8");
   try {
-    const sdl = await readFile(filePath, "utf-8");
     const doc = parse(sdl);
     const def = extractFragmentDef(doc);
     return {

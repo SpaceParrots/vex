@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { mkdtempSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/parse.js";
 import {
@@ -30,6 +29,20 @@ describe("saveFragment", () => {
     const out = await saveFragment({ envName: "env1", name: "CustomerBasic", sdl, schema });
     expect(out.onType).toBe("Customer");
     expect(existsSync(join(tmp, "env1", "CustomerBasic.graphql"))).toBe(true);
+  });
+
+  it("rejects names that do not match the identifier regex", async () => {
+    const schema = parseSchemaFromSdl("env1", fixture);
+    const sdl = `fragment X on Customer { id }`;
+    await expect(
+      saveFragment({ envName: "env1", name: "1bad", sdl, schema })
+    ).rejects.toThrow(/must match/i);
+    await expect(
+      saveFragment({ envName: "env1", name: "bad-name", sdl, schema })
+    ).rejects.toThrow(/must match/i);
+    await expect(
+      saveFragment({ envName: "env1", name: "", sdl, schema })
+    ).rejects.toThrow(/must match/i);
   });
 
   it("rejects when the name does not match the fragment definition", async () => {
