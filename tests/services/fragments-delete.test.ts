@@ -8,6 +8,7 @@ import {
   saveFragment,
   deleteFragment,
   getFragmentSdl,
+  loadFragment,
   setFragmentsRootForTests,
   clearFragmentCache,
 } from "../../src/services/fragments.js";
@@ -43,6 +44,21 @@ describe("deleteFragment", () => {
       deleted: false,
       reason: "not found",
     });
+  });
+
+  it("invalidates the load cache so a subsequent load fails", async () => {
+    const schema = parseSchemaFromSdl("e", fixture);
+    await saveFragment({
+      envName: "e",
+      name: "Cached",
+      sdl: `fragment Cached on Customer { id }`,
+      schema,
+    });
+    await loadFragment({ envName: "e", name: "Cached", schema });
+    await deleteFragment({ envName: "e", name: "Cached" });
+    await expect(
+      loadFragment({ envName: "e", name: "Cached", schema })
+    ).rejects.toThrow(/not found/);
   });
 });
 
