@@ -1149,7 +1149,11 @@ const FRAG_KEY_PREFIX = "$";
 
 function renderInlineValue(v: unknown): string {
   if (v === null) return "null";
-  if (typeof v === "string") return JSON.stringify(v);
+  if (typeof v === "string") {
+    // GraphQL forbids unescaped U+2028 / U+2029 inside StringValue, but JSON.stringify (ES2019+)
+    // may emit them raw. Escape explicitly to keep the rendered document valid.
+    return JSON.stringify(v).replace(/ /g, "\\u2028").replace(/ /g, "\\u2029");
+  }
   if (typeof v === "number" || typeof v === "boolean") return String(v);
   if (Array.isArray(v)) return `[${v.map(renderInlineValue).join(", ")}]`;
   if (typeof v === "object") {
@@ -1161,6 +1165,9 @@ function renderInlineValue(v: unknown): string {
   return JSON.stringify(v);
 }
 
+// Operation-level args are emitted as variable references (`$name`) by `renderDocument`.
+// Nested-field args inside a Selection are inlined as literals here because they originate
+// from already-realized values supplied by the wizard, not from the operation's variables.
 function renderArgs(args: Readonly<Record<string, unknown>>): string {
   const entries = Object.entries(args);
   if (entries.length === 0) return "";
@@ -1228,14 +1235,19 @@ export function renderDocument(input: RenderInput): RenderOutput {
   const opKw = input.kind;
   let doc = `${opKw} ${input.name}${argList} {\n  ${input.operationField}${callArgs} {\n${body}\n  }\n}\n`;
 
-  // Append referenced fragment definitions.
+  // Append referenced fragment definitions; refuse silently dropping a referenced fragment.
   const refs = new Set<string>();
   collectReferencedFragments(input.selection, refs);
-  if (input.fragments && refs.size > 0) {
-    const byName = new Map(input.fragments.map((f) => [f.name, f]));
+  if (refs.size > 0) {
+    const byName = new Map((input.fragments ?? []).map((f) => [f.name, f]));
     for (const name of refs) {
       const f = byName.get(name);
-      if (f) doc += `\n${f.sdl}\n`;
+      if (!f) {
+        throw new Error(
+          `Selection references fragment "${name}" but no matching fragment definition was provided.`
+        );
+      }
+      doc += `\n${f.sdl}\n`;
     }
   }
 
