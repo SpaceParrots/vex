@@ -6,7 +6,7 @@
  * `fragment Name on Type { ... }` definition.
  */
 
-import { readFile, writeFile, rename, mkdir, readdir } from "node:fs/promises";
+import { readFile, writeFile, rename, mkdir, readdir, unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -306,4 +306,36 @@ async function selectionSetToSelection(
   }
 
   return { kind: "object", fields };
+}
+
+/* ------------------------------ delete ------------------------------- */
+
+export interface DeleteFragmentInput {
+  readonly envName: string;
+  readonly name: string;
+}
+
+export async function deleteFragment(
+  input: DeleteFragmentInput
+): Promise<{ deleted: true } | { deleted: false; reason: string }> {
+  const path = join(envDir(input.envName), `${input.name}.graphql`);
+  if (!existsSync(path)) return { deleted: false, reason: "not found" };
+  await unlink(path);
+  selectionCache.delete(`${input.envName}|${input.name}`);
+  return { deleted: true };
+}
+
+/* ------------------------------ getSdl ------------------------------- */
+
+export interface GetFragmentSdlInput {
+  readonly envName: string;
+  readonly name: string;
+}
+
+export async function getFragmentSdl(input: GetFragmentSdlInput): Promise<string> {
+  const path = join(envDir(input.envName), `${input.name}.graphql`);
+  if (!existsSync(path)) {
+    throw new Error(`Fragment "${input.name}" not found at ${path}.`);
+  }
+  return readFile(path, "utf-8");
 }
