@@ -2,11 +2,10 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import { GraphQLSchema, GraphQLObjectType } from "graphql";
 import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/parse.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = readFileSync(join(__dirname, "../fixtures/schema.graphql"), "utf-8");
 
 describe("parseSchemaFromSdl", () => {
@@ -32,8 +31,12 @@ describe("parseSchemaFromSdl", () => {
   });
 
   it("caches per environment name", () => {
-    const a = parseSchemaFromSdl("env-a", fixture);
-    const b = parseSchemaFromSdl("env-b", fixture);
-    expect(a).not.toBe(b);
+    const a1 = parseSchemaFromSdl("env-a", fixture);
+    const b1 = parseSchemaFromSdl("env-b", fixture);
+    expect(a1).not.toBe(b1);
+    const a2 = parseSchemaFromSdl("env-a", fixture);
+    const b2 = parseSchemaFromSdl("env-b", fixture);
+    expect(a2).toBe(a1);
+    expect(b2).toBe(b1);
   });
 });

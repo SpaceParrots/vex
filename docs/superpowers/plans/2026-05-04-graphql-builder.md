@@ -347,11 +347,10 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import { GraphQLSchema, GraphQLObjectType } from "graphql";
 import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/parse.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = readFileSync(join(__dirname, "../fixtures/schema.graphql"), "utf-8");
 
 describe("parseSchemaFromSdl", () => {
@@ -464,8 +463,6 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import { GraphQLObjectType, GraphQLInputObjectType, GraphQLNonNull } from "graphql";
 import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/parse.js";
 import {
@@ -474,6 +471,7 @@ import {
   isListOptionsInput,
 } from "../../src/schema-model/classify.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = readFileSync(join(__dirname, "../fixtures/schema.graphql"), "utf-8");
 
 describe("isPaginatedList", () => {
@@ -642,8 +640,6 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import { GraphQLObjectType, GraphQLUnionType } from "graphql";
 import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/parse.js";
 import {
@@ -653,6 +649,7 @@ import {
   customFieldsType,
 } from "../../src/schema-model/classify.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = readFileSync(join(__dirname, "../fixtures/schema.graphql"), "utf-8");
 
 describe("errorBranches / successBranches", () => {
@@ -827,12 +824,11 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import { GraphQLObjectType } from "graphql";
 import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/parse.js";
 import { reachableLeafPaths } from "../../src/schema-model/walk.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = readFileSync(join(__dirname, "../fixtures/schema.graphql"), "utf-8");
 
 describe("reachableLeafPaths", () => {
@@ -1267,8 +1263,6 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
 vi.mock("../../src/client.js", () => {
   return {
     getClient: vi.fn(async () => ({
@@ -1281,6 +1275,7 @@ import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/par
 import type { Selection } from "../../src/schema-model/types.js";
 import { buildAndExecute } from "../../src/services/builder.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = readFileSync(join(__dirname, "../fixtures/schema.graphql"), "utf-8");
 
 describe("buildAndExecute", () => {
@@ -1489,6 +1484,7 @@ import {
   setFragmentsRootForTests,
 } from "../../src/services/fragments.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = readFileSync(join(__dirname, "../fixtures/schema.graphql"), "utf-8");
 
 let tmp: string;
@@ -1836,6 +1832,7 @@ import {
   clearFragmentCache,
 } from "../../src/services/fragments.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = readFileSync(join(__dirname, "../fixtures/schema.graphql"), "utf-8");
 
 let tmp: string;
@@ -2091,6 +2088,7 @@ import {
   clearFragmentCache,
 } from "../../src/services/fragments.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = readFileSync(join(__dirname, "../fixtures/schema.graphql"), "utf-8");
 
 let tmp: string;
@@ -2214,8 +2212,6 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/parse.js";
 import {
   describeType,
@@ -2224,6 +2220,7 @@ import {
   describeOperation,
 } from "../../src/services/schema-introspect.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = readFileSync(join(__dirname, "../fixtures/schema.graphql"), "utf-8");
 
 describe("describeType", () => {
