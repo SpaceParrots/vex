@@ -101,4 +101,46 @@ describe("renderDocument", () => {
     expect(normalize(doc.query)).toContain("...CustomerBasic");
     expect(doc.query).toContain("fragment CustomerBasic on Customer");
   });
+
+  it("throws when a referenced fragment is not supplied", () => {
+    const sel: Selection = {
+      kind: "object",
+      fields: { id: { kind: "scalar" }, $: { kind: "fragmentRef", name: "MissingFrag" } },
+    };
+    expect(() =>
+      renderDocument({
+        kind: "query",
+        name: "Q",
+        operationField: "f",
+        operationArgs: [],
+        variables: {},
+        selection: sel,
+      })
+    ).toThrow(/MissingFrag/);
+  });
+
+  it("renders a top-level union selection", () => {
+    const sel: Selection = {
+      kind: "union",
+      includeTypename: false,
+      branches: {
+        Customer: { kind: "object", fields: { id: { kind: "scalar" } } },
+        EmailAddressConflictError: {
+          kind: "object",
+          fields: { errorCode: { kind: "scalar" } },
+        },
+      },
+    };
+    const doc = renderDocument({
+      kind: "mutation",
+      name: "M",
+      operationField: "createCustomer",
+      operationArgs: [{ name: "emailAddress", type: "String!" }],
+      variables: { emailAddress: "x@y.z" },
+      selection: sel,
+    });
+    expect(normalize(doc.query)).toContain("... on Customer { id }");
+    expect(normalize(doc.query)).toContain("... on EmailAddressConflictError { errorCode }");
+    expect(normalize(doc.query)).not.toContain("__typename");
+  });
 });
