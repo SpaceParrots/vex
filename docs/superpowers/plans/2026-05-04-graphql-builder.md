@@ -192,7 +192,10 @@ Create `tests/smoke.test.ts`:
 ```ts
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 describe("vitest smoke", () => {
   it("loads the shared SDL fixture", () => {
@@ -342,7 +345,10 @@ Create `tests/schema-model/parse.test.ts`:
 ```ts
 import { describe, it, expect, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 import { GraphQLSchema, GraphQLObjectType } from "graphql";
 import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/parse.js";
 
@@ -456,7 +462,10 @@ Create `tests/schema-model/classify-pagination.test.ts`:
 ```ts
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 import { GraphQLObjectType, GraphQLInputObjectType, GraphQLNonNull } from "graphql";
 import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/parse.js";
 import {
@@ -631,7 +640,10 @@ Create `tests/schema-model/classify-result.test.ts`:
 ```ts
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 import { GraphQLObjectType, GraphQLUnionType } from "graphql";
 import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/parse.js";
 import {
@@ -813,7 +825,10 @@ Create `tests/schema-model/walk.test.ts`:
 ```ts
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 import { GraphQLObjectType } from "graphql";
 import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/parse.js";
 import { reachableLeafPaths } from "../../src/schema-model/walk.js";
@@ -1249,7 +1264,10 @@ Create `tests/services/builder.test.ts`:
 ```ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 vi.mock("../../src/client.js", () => {
   return {
@@ -2194,7 +2212,10 @@ Create `tests/services/schema-introspect.test.ts`:
 ```ts
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/parse.js";
 import {
   describeType,
