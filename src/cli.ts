@@ -18,6 +18,7 @@ import { createZoneCommand } from "./commands/zone.js";
 import { createTaxCommand } from "./commands/tax.js";
 import { createChannelCommand } from "./commands/channel.js";
 import { createFragmentCommand } from "./commands/fragment.js";
+import { createBuildCommand } from "./commands/build.js";
 
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json") as { version: string };
@@ -42,6 +43,7 @@ export function createCli(): Command {
   program.addCommand(createTaxCommand());
   program.addCommand(createChannelCommand());
   program.addCommand(createFragmentCommand());
+  program.addCommand(createBuildCommand());
 
   return program;
 }
