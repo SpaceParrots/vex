@@ -895,6 +895,12 @@ Create `src/schema-model/walk.ts`:
  * Computes leaf-field paths reachable from a root object type, up to a
  * configurable maximum depth. A "leaf" is a scalar or enum field; object
  * fields are descended into.
+ *
+ * Fields typed as `GraphQLInterfaceType` or `GraphQLUnionType` are not
+ * traversed and do not appear in the output. Callers that need to handle
+ * abstract types (e.g. inline-fragment selection) must use a separate
+ * mechanism — the wizard's "Paste GraphQL selection" preset is the
+ * intended escape hatch.
  */
 
 import {
