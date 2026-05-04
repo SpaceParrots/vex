@@ -49,8 +49,6 @@ describe("reachableLeafPaths", () => {
     const schema = parseSchemaFromSdl("cycle", sdl);
     const t = schema.getType("Node") as GraphQLObjectType;
     const paths = reachableLeafPaths(t, { maxDepth: 10 }).map((p) => p.path);
-    expect(paths.length).toBeLessThan(50);
-    expect(paths).toContain("id");
-    expect(paths).toContain("parent.id");
+    expect(paths).toEqual(["id", "parent.id"]);
   });
 });
