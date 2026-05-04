@@ -459,11 +459,11 @@ git commit -m "feat: add SDL parser with per-env hash cache"
 
 Create `tests/schema-model/classify-pagination.test.ts`:
 ```ts
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { GraphQLObjectType, GraphQLInputObjectType, GraphQLNonNull } from "graphql";
+import { GraphQLObjectType, GraphQLInputObjectType } from "graphql";
 import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/parse.js";
 import {
   isPaginatedList,
@@ -474,23 +474,22 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = readFileSync(join(__dirname, "../fixtures/schema.graphql"), "utf-8");
 
+beforeEach(() => clearSchemaCache());
+
 describe("isPaginatedList", () => {
   it("returns true for a type implementing PaginatedList", () => {
-    clearSchemaCache();
     const schema = parseSchemaFromSdl("t1", fixture);
     const t = schema.getType("CustomerList") as GraphQLObjectType;
     expect(isPaginatedList(t)).toBe(true);
   });
 
   it("returns false for plain object types", () => {
-    clearSchemaCache();
     const schema = parseSchemaFromSdl("t2", fixture);
     const t = schema.getType("Customer") as GraphQLObjectType;
     expect(isPaginatedList(t)).toBe(false);
   });
 
   it("returns true for structural fallback (items + totalItems)", () => {
-    clearSchemaCache();
     const sdl = `
       type Foo { id: ID! }
       type FooList { items: [Foo!]! totalItems: Int! }
@@ -504,7 +503,6 @@ describe("isPaginatedList", () => {
 
 describe("paginatedItemType", () => {
   it("returns the element type of `items`", () => {
-    clearSchemaCache();
     const schema = parseSchemaFromSdl("p1", fixture);
     const list = schema.getType("CustomerList") as GraphQLObjectType;
     const item = paginatedItemType(list);
@@ -515,14 +513,12 @@ describe("paginatedItemType", () => {
 
 describe("isListOptionsInput", () => {
   it("returns true for *ListOptions with take and skip", () => {
-    clearSchemaCache();
     const schema = parseSchemaFromSdl("l1", fixture);
     const t = schema.getType("CustomerListOptions") as GraphQLInputObjectType;
     expect(isListOptionsInput(t)).toBe(true);
   });
 
   it("returns false for inputs that only happen to be named *ListOptions", () => {
-    clearSchemaCache();
     const sdl = `
       input ProductListOptions { onlyActive: Boolean }
       type Query { x: Int }
@@ -533,7 +529,6 @@ describe("isListOptionsInput", () => {
   });
 
   it("returns false for non-input types", () => {
-    clearSchemaCache();
     const schema = parseSchemaFromSdl("l3", fixture);
     const t = schema.getType("Customer") as GraphQLObjectType;
     expect(isListOptionsInput(t as unknown as GraphQLInputObjectType)).toBe(false);
@@ -563,8 +558,10 @@ import {
   GraphQLInputObjectType,
   GraphQLList,
   GraphQLNonNull,
+  GraphQLScalarType,
   type GraphQLOutputType,
   type GraphQLNamedType,
+  type GraphQLNamedOutputType,
 } from "graphql";
 
 /** True when the type implements a `PaginatedList` interface or has `items: [T!]!` + `totalItems: Int!`. */
@@ -582,16 +579,16 @@ export function isPaginatedList(type: GraphQLNamedType | null | undefined): bool
   const itemsInner = items.ofType;
   if (!(itemsInner instanceof GraphQLList)) return false;
 
-  // totalItems: Int! (named "Int")
+  // totalItems: Int! (built-in Int scalar)
   if (!(total instanceof GraphQLNonNull)) return false;
   const totalInner = total.ofType;
-  if (!("name" in totalInner) || (totalInner as { name: string }).name !== "Int") return false;
+  if (!(totalInner instanceof GraphQLScalarType) || totalInner.name !== "Int") return false;
 
   return true;
 }
 
 /** Returns the element type of a paginated list's `items` field, or null if not paginated. */
-export function paginatedItemType(type: GraphQLNamedType | null | undefined): GraphQLNamedType | null {
+export function paginatedItemType(type: GraphQLNamedType | null | undefined): GraphQLNamedOutputType | null {
   if (!isPaginatedList(type)) return null;
   const obj = type as GraphQLObjectType;
   const itemsType = obj.getFields().items.type;
@@ -600,7 +597,7 @@ export function paginatedItemType(type: GraphQLNamedType | null | undefined): Gr
   while (cur instanceof GraphQLNonNull || cur instanceof GraphQLList) {
     cur = cur.ofType as GraphQLOutputType;
   }
-  return cur as unknown as GraphQLNamedType;
+  return cur as GraphQLNamedOutputType;
 }
 
 /** True when the input type's name ends in "ListOptions" and it has `take` and `skip` fields. */
@@ -731,16 +728,18 @@ Expected: failures on missing exports.
 
 - [ ] **Step 6.3 — Update the import block at the top of `classify.ts`**
 
-Replace the existing `from "graphql"` import block with the following (adds `GraphQLUnionType`):
+Replace the existing `from "graphql"` import block with the following (adds `GraphQLUnionType`; keeps `GraphQLScalarType` and `GraphQLNamedOutputType` from Task 5):
 ```ts
 import {
   GraphQLObjectType,
   GraphQLInputObjectType,
   GraphQLList,
   GraphQLNonNull,
+  GraphQLScalarType,
   GraphQLUnionType,
   type GraphQLOutputType,
   type GraphQLNamedType,
+  type GraphQLNamedOutputType,
 } from "graphql";
 ```
 

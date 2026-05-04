@@ -11,8 +11,10 @@ import {
   GraphQLInputObjectType,
   GraphQLList,
   GraphQLNonNull,
+  GraphQLScalarType,
   type GraphQLOutputType,
   type GraphQLNamedType,
+  type GraphQLNamedOutputType,
 } from "graphql";
 
 /** True when the type implements a `PaginatedList` interface or has `items: [T!]!` + `totalItems: Int!`. */
@@ -33,13 +35,14 @@ export function isPaginatedList(type: GraphQLNamedType | null | undefined): bool
   // totalItems: Int! (named "Int")
   if (!(total instanceof GraphQLNonNull)) return false;
   const totalInner = total.ofType;
-  if (!("name" in totalInner) || (totalInner as { name: string }).name !== "Int") return false;
+  // totalItems: Int! (built-in Int scalar)
+  if (!(totalInner instanceof GraphQLScalarType) || totalInner.name !== "Int") return false;
 
   return true;
 }
 
 /** Returns the element type of a paginated list's `items` field, or null if not paginated. */
-export function paginatedItemType(type: GraphQLNamedType | null | undefined): GraphQLNamedType | null {
+export function paginatedItemType(type: GraphQLNamedType | null | undefined): GraphQLNamedOutputType | null {
   if (!isPaginatedList(type)) return null;
   const obj = type as GraphQLObjectType;
   const itemsType = obj.getFields().items.type;
@@ -48,7 +51,7 @@ export function paginatedItemType(type: GraphQLNamedType | null | undefined): Gr
   while (cur instanceof GraphQLNonNull || cur instanceof GraphQLList) {
     cur = cur.ofType as GraphQLOutputType;
   }
-  return cur as unknown as GraphQLNamedType;
+  return cur as GraphQLNamedOutputType;
 }
 
 /** True when the input type's name ends in "ListOptions" and it has `take` and `skip` fields. */
