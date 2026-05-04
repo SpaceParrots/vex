@@ -1,0 +1,102 @@
+interface PaginatedList {
+  totalItems: Int!
+}
+
+interface ErrorResult {
+  errorCode: String!
+  message: String!
+}
+
+enum SortOrder {
+  ASC
+  DESC
+}
+
+input StringOperators {
+  eq: String
+  contains: String
+  in: [String!]
+}
+
+input CustomerSortParameter {
+  id: SortOrder
+  firstName: SortOrder
+}
+
+input CustomerFilterParameter {
+  emailAddress: StringOperators
+  firstName: StringOperators
+}
+
+input CustomerListOptions {
+  take: Int
+  skip: Int
+  filter: CustomerFilterParameter
+  sort: CustomerSortParameter
+}
+
+input OrderListOptions {
+  take: Int
+  skip: Int
+}
+
+type Country {
+  id: ID!
+  code: String!
+  name: String!
+}
+
+type Address {
+  id: ID!
+  streetLine1: String!
+  city: String!
+  country: Country!
+}
+
+type Order {
+  id: ID!
+  code: String!
+  total: Int!
+  state: String!
+}
+
+type CustomerCustomFields {
+  vatId: String
+  loyaltyPoints: Int
+}
+
+type Customer {
+  id: ID!
+  firstName: String!
+  lastName: String!
+  emailAddress: String!
+  customFields: CustomerCustomFields
+  orders(options: OrderListOptions): OrderList!
+  addresses: [Address!]!
+}
+
+type CustomerList implements PaginatedList {
+  items: [Customer!]!
+  totalItems: Int!
+}
+
+type OrderList implements PaginatedList {
+  items: [Order!]!
+  totalItems: Int!
+}
+
+type EmailAddressConflictError implements ErrorResult {
+  errorCode: String!
+  message: String!
+}
+
+union CreateCustomerResult = Customer | EmailAddressConflictError
+
+type Query {
+  customers(options: CustomerListOptions): CustomerList!
+  customer(id: ID!): Customer
+}
+
+type Mutation {
+  createCustomer(emailAddress: String!): CreateCustomerResult!
+}
