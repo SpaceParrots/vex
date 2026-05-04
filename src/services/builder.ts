@@ -44,35 +44,7 @@ function lookupOperation(
   return field;
 }
 
-/** Builds the GraphQL document, executes it via `getClient()`, and returns the raw response. */
-export async function buildAndExecute(input: BuildAndExecuteInput): Promise<unknown> {
-  const field = lookupOperation(input.schema, input.kind, input.operationName);
-  const operationArgs: OperationArg[] = field.args.map((a) => ({
-    name: a.name,
-    type: gqlTypeString(a.type),
-  }));
-
-  const docName =
-    input.operationName.charAt(0).toUpperCase() + input.operationName.slice(1);
-
-  const { query, variables } = renderDocument({
-    kind: input.kind,
-    name: docName,
-    operationField: input.operationName,
-    operationArgs,
-    variables: input.variables,
-    selection: input.selection,
-    fragments: input.fragments,
-  });
-
-  const client = await getClient();
-  return client.request(query, variables);
-}
-
-/** Render-only variant for `--dry-run`. Does not call the network. */
-export function buildDocument(
-  input: BuildAndExecuteInput
-): { query: string; variables: Readonly<Record<string, unknown>> } {
+function buildCore(input: BuildAndExecuteInput): { query: string; variables: Readonly<Record<string, unknown>> } {
   const field = lookupOperation(input.schema, input.kind, input.operationName);
   const operationArgs: OperationArg[] = field.args.map((a) => ({
     name: a.name,
@@ -89,4 +61,16 @@ export function buildDocument(
     selection: input.selection,
     fragments: input.fragments,
   });
+}
+
+/** Builds the GraphQL document, executes it via `getClient()`, and returns the raw response. */
+export async function buildAndExecute(input: BuildAndExecuteInput): Promise<unknown> {
+  const { query, variables } = buildCore(input);
+  const client = await getClient();
+  return client.request(query, variables);
+}
+
+/** Render-only variant for `--dry-run`. Does not call the network. */
+export function buildDocument(input: BuildAndExecuteInput): { query: string; variables: Readonly<Record<string, unknown>> } {
+  return buildCore(input);
 }

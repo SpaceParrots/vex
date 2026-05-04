@@ -13,7 +13,7 @@ vi.mock("../../src/client.js", () => {
 
 import { parseSchemaFromSdl, clearSchemaCache } from "../../src/schema-model/parse.js";
 import type { Selection } from "../../src/schema-model/types.js";
-import { buildAndExecute } from "../../src/services/builder.js";
+import { buildAndExecute, buildDocument } from "../../src/services/builder.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = readFileSync(join(__dirname, "../fixtures/schema.graphql"), "utf-8");
@@ -85,5 +85,20 @@ describe("buildAndExecute", () => {
         selection: { kind: "object", fields: {} },
       })
     ).rejects.toThrow(/operation/i);
+  });
+
+  it("buildDocument returns query and variables without calling the network (dry-run)", () => {
+    const schema = parseSchemaFromSdl("b4", fixture);
+    const sel: Selection = { kind: "object", fields: { id: { kind: "scalar" } } };
+    const result = buildDocument({
+      schema,
+      kind: "query",
+      operationName: "customer",
+      variables: { id: "1" },
+      selection: sel,
+    });
+    expect(result.query).toContain("query");
+    expect(result.query).toContain("customer(id: $id)");
+    expect(result.variables).toEqual({ id: "1" });
   });
 });
