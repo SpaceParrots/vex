@@ -933,7 +933,8 @@ function walk(
   out: LeafPath[]
 ): void {
   if (depth > maxDepth) return;
-  if (visited.has(type.name)) return; // cycle guard
+
+  // Mark the current type as visited so descendants cannot recurse back into it.
   const next = new Set(visited);
   next.add(type.name);
 
@@ -943,7 +944,12 @@ function walk(
     if (inner instanceof GraphQLScalarType || inner instanceof GraphQLEnumType) {
       out.push({ path, typeName: inner.name });
     } else if (inner instanceof GraphQLObjectType) {
-      walk(inner, path, depth + 1, maxDepth, next, out);
+      // Only descend if the child type has not yet been seen on this path (cycle guard).
+      // The check uses `visited` (parent's set) so a type's own scalars are always emitted
+      // before the cycle is detected at the next descent.
+      if (!visited.has(inner.name)) {
+        walk(inner, path, depth + 1, maxDepth, next, out);
+      }
     }
     // Interfaces/unions: skipped in the flat selector (handled via dedicated wizard escape hatches).
   }
