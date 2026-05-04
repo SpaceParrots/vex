@@ -18,3 +18,9 @@ export const API_KEY_MASK_LENGTH = 4;
 
 /** Suffix appended after the visible portion of a masked API key. */
 export const API_KEY_MASK_SUFFIX = "****";
+
+/** Default max depth for the wizard's flat path selector. */
+export const DEFAULT_SELECTOR_MAX_DEPTH = 3;
+
+/** Hard cap for the flat path selector's --max-depth flag. */
+export const MAX_SELECTOR_DEPTH = 6;

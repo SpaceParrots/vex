@@ -193,3 +193,10 @@ export async function listEnvs(): Promise<{
 export function getSchemaPath(envName: string): string {
   return join(SCHEMAS_DIR, `${envName}.graphql`);
 }
+
+const FRAGMENTS_DIR = join(CONFIG_DIR, "fragments");
+
+/** Returns the directory where fragments for the given environment are stored. */
+export function getFragmentsDir(envName: string): string {
+  return join(FRAGMENTS_DIR, envName);
+}
