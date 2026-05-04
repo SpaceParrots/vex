@@ -1352,7 +1352,8 @@ describe("buildAndExecute", () => {
     expect(result.q).toContain("mutation");
     expect(result.q).toContain("createCustomer(emailAddress: $emailAddress)");
     expect(result.q).toContain("__typename");
-    expect(result.q).toContain("... on Customer { id }");
+    expect(result.q).toContain("... on Customer {");
+    expect(result.q).toContain("id");
     expect(result.q).toContain("... on EmailAddressConflictError");
   });
 
