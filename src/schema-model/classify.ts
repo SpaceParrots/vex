@@ -12,6 +12,7 @@ import {
   GraphQLList,
   GraphQLNonNull,
   GraphQLScalarType,
+  GraphQLUnionType,
   type GraphQLOutputType,
   type GraphQLNamedType,
   type GraphQLNamedOutputType,
@@ -60,4 +61,46 @@ export function isListOptionsInput(type: GraphQLNamedType | null | undefined): b
   if (!type.name.endsWith("ListOptions")) return false;
   const fields = type.getFields();
   return Boolean(fields.take && fields.skip);
+}
+
+/** True when the field type is a non-null `String!`. */
+function isReqStringField(t: unknown): boolean {
+  if (!(t instanceof GraphQLNonNull)) return false;
+  const inner = t.ofType as { name?: string };
+  return inner.name === "String";
+}
+
+/** True when the object type implements `ErrorResult` or has `errorCode: String!` + `message: String!`. */
+function isErrorBranch(t: GraphQLObjectType): boolean {
+  if (t.getInterfaces().some((i) => i.name === "ErrorResult")) return true;
+  const f = t.getFields();
+  return isReqStringField(f.errorCode?.type) && isReqStringField(f.message?.type);
+}
+
+/** Returns the union members that look like error results. */
+export function errorBranches(union: GraphQLUnionType): readonly GraphQLObjectType[] {
+  return union.getTypes().filter(isErrorBranch);
+}
+
+/** Returns the union members that are NOT error results. */
+export function successBranches(union: GraphQLUnionType): readonly GraphQLObjectType[] {
+  return union.getTypes().filter((t) => !isErrorBranch(t));
+}
+
+/** True when the type has `customFields` whose type is a non-null typed object (not JSON). */
+export function hasTypedCustomFields(type: GraphQLObjectType | null | undefined): boolean {
+  return customFieldsType(type) !== null;
+}
+
+/** Returns the `customFields` sub-object type, or null if customFields is absent or JSON-typed. */
+export function customFieldsType(type: GraphQLObjectType | null | undefined): GraphQLObjectType | null {
+  if (!type) return null;
+  const f = type.getFields().customFields;
+  if (!f) return null;
+  let inner: unknown = f.type;
+  while (inner instanceof GraphQLNonNull) {
+    inner = inner.ofType;
+  }
+  if (inner instanceof GraphQLObjectType) return inner;
+  return null;
 }
