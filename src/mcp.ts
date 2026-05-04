@@ -19,6 +19,8 @@ import { registerOrderTools } from "./tools/orders.js";
 import { registerZoneTools } from "./tools/zones.js";
 import { registerTaxTools } from "./tools/tax.js";
 import { registerChannelTools } from "./tools/channels.js";
+import { registerSchemaIntrospectionTools } from "./tools/schemaIntrospection.js";
+import { registerFragmentTools } from "./tools/fragments.js";
 import { loadConfig } from "./config.js";
 import { loadSchema } from "./schema.js";
 
@@ -73,6 +75,8 @@ export async function startMcpServer(): Promise<void> {
   registerZoneTools(server);
   registerTaxTools(server);
   registerChannelTools(server);
+  registerSchemaIntrospectionTools(server);
+  registerFragmentTools(server);
 
   // Try to load schema on startup and expose it as a resource.
   // Failures are expected on first run or when no environment is configured.
