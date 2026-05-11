@@ -11,11 +11,15 @@ Use `vex` from your terminal to manage products, customers, and orders — or co
 
 ## Features
 
-- **Environment management** — add, switch, and configure multiple Vendure instances
-- **Typed resource commands** — CRUD operations for customers, products, and orders out of the box
-- **Raw GraphQL** — run any query or mutation directly from the terminal
-- **Schema caching** — fetch and cache your Vendure schema for offline reference
-- **MCP server** — expose all commands as tools so Claude can chain them via natural language
+- **Environment management** — add, switch, configure, and health-check multiple Vendure instances
+- **Interactive query builder** — pick an operation, prompt for variables (with proper type coercion), choose fields, and run
+- **Typed resource commands** — CRUD for customers, products, orders, channels, zones, and tax out of the box
+- **Schema-aware** — fetch and cache your Vendure schema (works with custom plugins) and introspect it from the CLI or MCP
+- **Reusable building blocks**
+  - **Fragments** — named field selections you can reuse across operations
+  - **Saved operations** — full queries/mutations with their default variables, replayable via `vex run`
+- **Raw GraphQL** — run any query or mutation directly when you need the escape hatch
+- **MCP server** — expose every command and saved operation as tools so Claude can chain them via natural language
 
 ## Installation
 
@@ -45,19 +49,25 @@ The key is sent via the `vendure-api-key` header on every request.
 ## Quick start
 
 ```bash
-# Add an environment
+# Add an environment — interactive wizard prompts for missing values and validates by fetching the schema
+vex env add dev
+
+# Or non-interactive
 vex env add dev --url http://localhost:3000/admin-api --api-key sk-123456
 
-# List products
-vex product list
+# Verify it's healthy
+vex env status dev
 
-# Create a customer
-vex customer create --email john@example.com --first-name John --last-name Doe
+# Build a query interactively (pick fields, fill variables, see the GraphQL document)
+vex build -q customers
 
-# Run any GraphQL query
-vex query '{ products { items { id name } totalItems } }'
+# Save the built query for replay
+vex build -q contents --save ContentsPublished
 
-# Fetch and cache the schema
+# Replay it later, optionally overriding variables
+vex run ContentsPublished --var "options={\"take\":5}"
+
+# Fetch and cache the schema (auto-fetched on first use)
 vex schema fetch
 ```
 
@@ -66,33 +76,90 @@ vex schema fetch
 ### Environment management
 
 ```bash
-vex env add <name> --url <url> --api-key <key>   # Add environment
-                   [--schema-type endpoint|file]   # Schema source type
-                   [--schema-value <value>]         # Introspection URL or file path
-                   [--fetch-schema]                 # Fetch schema immediately
-vex env list                                       # List all environments
-vex env switch <name>                              # Switch active environment
-vex env set <name> [--url <url>] [--api-key <key>] # Update environment fields
-vex env remove <name>                              # Remove environment
-vex env show [name]                                # Show environment details
+vex env add <name> [--url <url>] [--api-key <key>]   # Interactive when --url or --api-key is missing.
+                   [--schema-type endpoint|file]      # Validates by fetching the schema (or reading the SDL file).
+                   [--schema-value <value>]
+                   [--no-validate]
+vex env list                                          # List all environments
+vex env switch <name>                                 # Switch active environment
+vex env set <name> [--url <url>] [--api-key <key>]    # Update environment fields
+vex env remove <name>                                 # Remove environment
+vex env show <name>                                   # Show environment details (API key masked)
+vex env status <name> [--json]                        # Check endpoint reachability + schema accessibility
 ```
 
 ### Schema
 
 ```bash
-vex schema fetch [--env <name>]     # Fetch and cache GraphQL schema
+vex schema fetch [--env <name>]                       # Fetch and cache GraphQL schema
+```
+
+### Interactive builder
+
+```bash
+vex build -q <name>                                   # Build a query — name is optional, you can pick interactively
+vex build -m <name>                                   # Build a mutation
+        [--fragment <Name>]                           # Use a saved fragment as the selection set
+        [--max-depth <n>]                             # Cap the field-picker depth
+        [--dry-run]                                   # Print without executing
+        [--verbose]                                   # Also print the rendered document and variables before executing
+        [--save <Name>] [--overwrite]                 # Persist the result for later replay with `vex run`
+```
+
+### Saved operations
+
+```bash
+vex run <Name>                                        # Replay a saved operation
+        [--var key=value ...]                         # Override one top-level variable (JSON-parsed; repeatable)
+        [--vars-json '<json>']                        # Replace the full variables object
+        [--dry-run] [--verbose]
+vex operation list [--kind query|mutation] [--root-field <name>]
+vex operation show <Name> [--json]
+vex operation delete <Name>
+```
+
+### Fragments
+
+```bash
+vex fragment list                                     # List saved fragments (created during `vex build` -> Customize -> Save)
+vex fragment show <Name>
+vex fragment delete <Name>
 ```
 
 ### Generic GraphQL
 
 ```bash
-vex query '<graphql>' [--variables '<json>']    # Run any query
-vex mutate '<graphql>' [--variables '<json>']   # Run any mutation
+vex query '<graphql>' [--variables '<json>']          # Run any query
+vex mutate '<graphql>' [--variables '<json>']         # Run any mutation
 ```
 
-### Customers, Products & Orders
+### Customers, Products, Orders, Channels, Zones, Tax
 
-Each resource supports `list`, `get`, `create`, `update`, and `delete` plus resource-specific actions (e.g. `customer add-note`, `product add-variants`, `order transition`). Run `vex <resource> --help` for full options.
+Each resource supports `list`, `get`, `create`, `update`, and `delete` plus resource-specific actions (e.g. `customer add-note`, `product add-variants`, `order transition`, `zone add-members`, `tax create-rate`). Run `vex <resource> --help` for full options.
+
+## Two-minute walkthrough
+
+```bash
+# 1. Add an env (interactive — prompts for URL, key, validates the schema)
+$ vex env add dev
+
+# 2. Build, save, dry-run a paginated query
+$ vex build -q contents --save ContentsPublished --dry-run
+
+# 3. Replay with a different page size
+$ vex run ContentsPublished --var "options={\"take\":50}"
+
+# 4. Browse what's saved
+$ vex operation list
+$ vex operation show ContentsPublished
+
+# 5. Check the environment any time
+$ vex env status dev
+Environment: dev (active)
+URL:         http://localhost:3000/admin-api
+Endpoint:    OK   reachable, API key accepted
+Schema:      OK   cached (412331 bytes, mtime 2026-05-11T...)
+```
 
 ## MCP setup (Claude Code)
 
@@ -122,45 +189,40 @@ Then you can use natural language:
 
 Claude will check if the product exists, create it if needed, find or create a customer, create a draft order, and add items — all by chaining the MCP tools automatically.
 
+Server-level **`instructions`** are shipped with the MCP handshake, so Claude already knows the tool tiers (typed CRUD → schema introspection → raw GraphQL), how saved operations and fragments work, and how to handle Vendure's union-result mutations.
+
 ### Available MCP tools
 
-When used as an MCP server, vex exposes 23 tools:
+When used as an MCP server, vex exposes ~55 tools across these groups:
 
-| Tool | Description |
-|------|-------------|
-| `vendure_setup` | Add, remove, list, switch, set, or show environments |
-| `vendure_refetch_schema` | Re-fetch and cache the GraphQL schema |
-| `vendure_query` | Execute any GraphQL query |
-| `vendure_mutate` | Execute any GraphQL mutation |
-| `vendure_get_customers` | List customers with filters |
-| `vendure_get_customer` | Get customer by ID with addresses and orders |
-| `vendure_create_customer` | Create a customer |
-| `vendure_update_customer` | Update a customer |
-| `vendure_delete_customer` | Delete a customer |
-| `vendure_add_customer_note` | Add a note to a customer |
-| `vendure_get_products` | List products with filters |
-| `vendure_get_product` | Get product by ID with variants and facets |
-| `vendure_create_product` | Create a product |
-| `vendure_update_product` | Update a product |
-| `vendure_delete_product` | Delete a product |
-| `vendure_create_product_variants` | Create variants for a product |
-| `vendure_get_orders` | List orders with filters |
-| `vendure_get_order` | Get order by ID with lines and payments |
-| `vendure_create_draft_order` | Create a draft order |
-| `vendure_add_item_to_draft_order` | Add item to a draft order |
-| `vendure_set_customer_for_draft_order` | Assign customer to a draft order |
-| `vendure_transition_order` | Transition order state |
-| `vendure_cancel_order` | Cancel an order |
+| Group | Example tools | What it covers |
+|-------|--------------|----------------|
+| Setup & schema | `vex_setup`, `vex_refetch_schema` | Add/list/switch envs, refresh the cached schema |
+| Schema introspection | `vex_list_operations`, `vex_describe_operation`, `vex_describe_type`, `vex_list_custom_fields` | Discover what the API supports (great with plugin-extended schemas) |
+| Raw GraphQL | `vex_query`, `vex_mutate` | Escape hatch for custom plugin operations |
+| Customers | `vex_get_customers`, `vex_get_customer`, `vex_create_customer`, `vex_update_customer`, `vex_delete_customer`, `vex_add_customer_note` | |
+| Products | `vex_get_products`, `vex_get_product`, `vex_create_product`, `vex_update_product`, `vex_delete_product`, `vex_create_product_variants` | |
+| Orders | `vex_get_orders`, `vex_get_order`, `vex_create_draft_order`, `vex_add_item_to_draft_order`, `vex_set_customer_for_draft_order`, `vex_transition_order`, `vex_cancel_order` | |
+| Channels | `vex_get_channels`, `vex_get_channel`, `vex_get_active_channel`, `vex_update_channel` | |
+| Zones & countries | `vex_get_zones`, `vex_create_zone`, `vex_add_members_to_zone`, `vex_create_country`, `vex_get_countries`, … | |
+| Tax | `vex_get_tax_categories`, `vex_create_tax_rate`, `vex_update_tax_rate`, … | |
+| Fragments | `vex_list_fragments`, `vex_save_fragment`, `vex_get_fragment`, `vex_delete_fragment` | Reusable field selections |
+| Saved operations | `vex_list_saved_operations`, `vex_get_saved_operation`, `vex_run_saved_operation`, `vex_delete_saved_operation` | Full queries/mutations with default variables, replayable |
+
+The cached GraphQL schema is also exposed as the MCP resource `vendure://schema/<envName>` so Claude can read it as ground truth.
 
 ## Configuration
 
-Environments are stored at `~/.vendure-vex/config.json`. Each has:
+Configuration lives under `~/.vendure-vex/`:
 
-- **url** — Vendure Admin API endpoint
-- **apiKey** — sent as the `vendure-api-key` header
-- **schemaSource** (optional) — `"endpoint"` to introspect, or `"file"` to load local SDL
+| Path | What's there |
+|------|--------------|
+| `config.json` | Environments: `{ url, apiKey, schemaSource? }` keyed by name + `activeEnvironment` |
+| `schemas/<env>.graphql` | Cached SDL per environment |
+| `fragments/<env>/<Name>.graphql` | Saved fragments per environment |
+| `operations/<env>/<Name>.json` | Saved operations (document + default variables) per environment |
 
-Cached schemas live at `~/.vendure-vex/schemas/`.
+Environment names are restricted to `[A-Za-z0-9_-]+` for path safety.
 
 ## Development
 
@@ -169,6 +231,7 @@ npm install
 npm run build        # Compile to dist/
 npm run dev          # Run with tsx (no build)
 npm run typecheck    # Type check only
+npm test             # Run the vitest suite
 ```
 
 ## License

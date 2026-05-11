@@ -20,7 +20,7 @@ import { getSchemaPath, type Environment } from "./config.js";
  * @param env - Environment with API credentials.
  * @param endpoint - Optional override URL for introspection (defaults to `env.url`).
  */
-async function introspect(env: Environment, endpoint?: string): Promise<string> {
+export async function introspect(env: Environment, endpoint?: string): Promise<string> {
   const client = createClient({
     ...env,
     url: endpoint ?? env.url,

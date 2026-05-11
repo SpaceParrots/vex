@@ -1,13 +1,27 @@
 /**
+ * When set to "1", MCP responses are pretty-printed with 2-space indent.
+ * Default is compact (no indent) to save tokens — typical MCP sessions burn
+ * ~25–30% of every response on whitespace otherwise.
+ */
+const PRETTY_MCP = process.env.VEX_PRETTY_JSON === "1";
+
+function mcpStringify(data: unknown): string {
+  return PRETTY_MCP ? JSON.stringify(data, null, 2) : JSON.stringify(data);
+}
+
+/**
  * Formats data as a JSON MCP text content response.
  *
- * Used by MCP tool handlers to return structured JSON to the client.
+ * Used by MCP tool handlers to return structured JSON to the client. Compact
+ * by default; set the `VEX_PRETTY_JSON=1` environment variable when launching
+ * the MCP server to switch to pretty-printed output (useful for debugging
+ * but ~30% more tokens per response).
  *
  * @param data - The data to serialize.
  * @returns An MCP-compatible content array with a single JSON text block.
  */
 export function jsonContent(data: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  return { content: [{ type: "text" as const, text: mcpStringify(data) }] };
 }
 
 /**
