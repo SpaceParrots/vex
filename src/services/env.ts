@@ -30,11 +30,26 @@ interface GraphQLRequestError {
   };
 }
 
-function isGraphQLRequestError(err: unknown): err is GraphQLRequestError {
-  if (!err || typeof err !== "object") return false;
-  const response = (err as { response?: unknown }).response;
+function hasGraphQLResponse(value: unknown): value is GraphQLRequestError {
+  if (!value || typeof value !== "object") return false;
+  const response = (value as { response?: unknown }).response;
   if (!response || typeof response !== "object") return false;
   return typeof (response as { status?: unknown }).status === "number";
+}
+
+/**
+ * Returns the underlying `graphql-request` `ClientError`-shaped object if the
+ * thrown error exposes one. `createClient()` wraps the raw client error via
+ * `compactGraphQLError`, preserving the original on `.cause`, so we walk that
+ * chain (with a small bound) before giving up.
+ */
+function findGraphQLRequestError(err: unknown): GraphQLRequestError | null {
+  let cur: unknown = err;
+  for (let i = 0; i < 5 && cur; i++) {
+    if (hasGraphQLResponse(cur)) return cur;
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return null;
 }
 
 function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
@@ -187,9 +202,10 @@ async function checkEndpoint(env: Environment): Promise<EnvCheck> {
     await client.request<{ __typename: string }>("{ __typename }");
     return { ok: true, detail: "reachable, API key accepted" };
   } catch (err: unknown) {
-    if (isGraphQLRequestError(err)) {
-      const status = err.response.status;
-      const firstError = err.response.errors?.[0]?.message;
+    const gqlErr = findGraphQLRequestError(err);
+    if (gqlErr) {
+      const status = gqlErr.response.status;
+      const firstError = gqlErr.response.errors?.[0]?.message;
       if (status === 401 || status === 403) {
         return { ok: false, detail: `reachable but unauthorized (HTTP ${status})` };
       }

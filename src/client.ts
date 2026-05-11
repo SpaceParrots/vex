@@ -43,7 +43,9 @@ export function compactGraphQLError(err: unknown): Error {
     return out;
   }
   if (e.response?.status) {
-    return new Error(`HTTP ${e.response.status}`);
+    const out = new Error(`HTTP ${e.response.status}`);
+    (out as Error & { cause?: unknown }).cause = err;
+    return out;
   }
   return err instanceof Error ? err : new Error(String(err));
 }
