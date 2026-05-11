@@ -102,7 +102,7 @@ vex build -m <name>                                   # Build a mutation
         [--fragment <Name>]                           # Use a saved fragment as the selection set
         [--max-depth <n>]                             # Cap the field-picker depth
         [--dry-run]                                   # Print without executing
-        [--quiet]                                     # Skip the document preview
+        [--verbose]                                   # Also print the rendered document and variables before executing
         [--save <Name>] [--overwrite]                 # Persist the result for later replay with `vex run`
 ```
 
@@ -112,7 +112,7 @@ vex build -m <name>                                   # Build a mutation
 vex run <Name>                                        # Replay a saved operation
         [--var key=value ...]                         # Override one top-level variable (JSON-parsed; repeatable)
         [--vars-json '<json>']                        # Replace the full variables object
-        [--dry-run] [--quiet]
+        [--dry-run] [--verbose]
 vex operation list [--kind query|mutation] [--root-field <name>]
 vex operation show <Name> [--json]
 vex operation delete <Name>
