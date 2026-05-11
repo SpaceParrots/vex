@@ -51,6 +51,23 @@ export interface SaveFragmentInput {
 }
 
 const NAME_RE = /^[A-Za-z][A-Za-z0-9]*$/;
+const ENV_NAME_RE = /^[A-Za-z0-9_-]+$/;
+
+/** Throws if the fragment name does not match the safe identifier pattern. */
+function assertValidName(name: string): void {
+  if (!NAME_RE.test(name)) {
+    throw new Error(`Fragment name "${name}" must match ${NAME_RE.source}.`);
+  }
+}
+
+/** Throws if the environment name could escape the fragments directory. */
+function assertValidEnvName(envName: string): void {
+  if (!ENV_NAME_RE.test(envName)) {
+    throw new Error(
+      `Environment name "${envName}" must match ${ENV_NAME_RE.source} (path-safe characters only).`
+    );
+  }
+}
 
 function extractFragmentDef(doc: DocumentNode): FragmentDefinitionNode {
   const defs = doc.definitions.filter(
@@ -127,9 +144,8 @@ export async function saveFragment(input: SaveFragmentInput): Promise<{
   onType: string;
   path: string;
 }> {
-  if (!NAME_RE.test(input.name)) {
-    throw new Error(`Fragment name "${input.name}" must match ${NAME_RE.source}.`);
-  }
+  assertValidEnvName(input.envName);
+  assertValidName(input.name);
 
   const doc = parse(input.sdl);
   const def = extractFragmentDef(doc);
@@ -186,6 +202,7 @@ async function readMeta(filePath: string): Promise<FragmentMeta | null> {
 }
 
 export async function listFragments(input: ListFragmentsInput): Promise<readonly FragmentMeta[]> {
+  assertValidEnvName(input.envName);
   const dir = envDir(input.envName);
   if (!existsSync(dir)) return [];
   const entries = await readdir(dir);
@@ -215,6 +232,10 @@ export interface LoadFragmentInput {
 }
 
 async function readFragmentSdl(envName: string, name: string): Promise<string> {
+  // envName is validated by the public callers (loadFragment), but `name`
+  // can come from arbitrary FragmentSpread refs inside a saved fragment, so
+  // re-validate it here to keep the file path inside the env directory.
+  assertValidName(name);
   const path = join(envDir(envName), `${name}.graphql`);
   if (!existsSync(path)) {
     throw new Error(`Fragment "${name}" not found at ${path}.`);
@@ -224,6 +245,8 @@ async function readFragmentSdl(envName: string, name: string): Promise<string> {
 
 /** Loads and parses a fragment, resolving spreads recursively, with cycle detection. */
 export async function loadFragment(input: LoadFragmentInput): Promise<Selection> {
+  assertValidEnvName(input.envName);
+  assertValidName(input.name);
   const visiting: string[] = [];
 
   async function resolve(name: string): Promise<Selection> {
@@ -318,6 +341,8 @@ export interface DeleteFragmentInput {
 export async function deleteFragment(
   input: DeleteFragmentInput
 ): Promise<{ deleted: true } | { deleted: false; reason: string }> {
+  assertValidEnvName(input.envName);
+  assertValidName(input.name);
   const path = join(envDir(input.envName), `${input.name}.graphql`);
   if (!existsSync(path)) return { deleted: false, reason: "not found" };
   await unlink(path);
@@ -333,6 +358,8 @@ export interface GetFragmentSdlInput {
 }
 
 export async function getFragmentSdl(input: GetFragmentSdlInput): Promise<string> {
+  assertValidEnvName(input.envName);
+  assertValidName(input.name);
   const path = join(envDir(input.envName), `${input.name}.graphql`);
   if (!existsSync(path)) {
     throw new Error(`Fragment "${input.name}" not found at ${path}.`);

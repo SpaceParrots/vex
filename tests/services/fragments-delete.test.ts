@@ -74,3 +74,34 @@ describe("getFragmentSdl", () => {
     await expect(getFragmentSdl({ envName: "e", name: "Nope" })).rejects.toThrow(/not found/);
   });
 });
+
+describe("path-traversal safety", () => {
+  it("rejects path-traversal envNames", async () => {
+    const schema = parseSchemaFromSdl("e", fixture);
+    await expect(
+      saveFragment({ envName: "../escape", name: "X", sdl: `fragment X on Customer { id }`, schema })
+    ).rejects.toThrow(/Environment name/);
+    await expect(
+      loadFragment({ envName: "..", name: "X", schema })
+    ).rejects.toThrow(/Environment name/);
+    await expect(
+      deleteFragment({ envName: "a/b", name: "X" })
+    ).rejects.toThrow(/Environment name/);
+    await expect(
+      getFragmentSdl({ envName: "a/b", name: "X" })
+    ).rejects.toThrow(/Environment name/);
+  });
+
+  it("rejects path-traversal fragment names on load, delete, and get", async () => {
+    const schema = parseSchemaFromSdl("e", fixture);
+    await expect(
+      loadFragment({ envName: "e", name: "../bad", schema })
+    ).rejects.toThrow(/must match/);
+    await expect(
+      deleteFragment({ envName: "e", name: "../bad" })
+    ).rejects.toThrow(/must match/);
+    await expect(
+      getFragmentSdl({ envName: "e", name: "../bad" })
+    ).rejects.toThrow(/must match/);
+  });
+});
