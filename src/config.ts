@@ -41,6 +41,7 @@ const CONFIG_DIR = join(homedir(), ".vendure-vex");
 const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 const SCHEMAS_DIR = join(CONFIG_DIR, "schemas");
 const FRAGMENTS_DIR = join(CONFIG_DIR, "fragments");
+const OPERATIONS_DIR = join(CONFIG_DIR, "operations");
 
 function emptyConfig(): VexConfig {
   return { activeEnvironment: "", environments: {} };
@@ -85,17 +86,34 @@ export async function getActiveEnv(): Promise<{
   return { name, env: config.environments[name] };
 }
 
+const ENV_NAME_RE = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * Throws if the environment name contains characters that could escape the
+ * per-environment directories (`schemas/<name>`, `fragments/<name>`,
+ * `operations/<name>`) via path traversal.
+ */
+export function assertValidEnvName(name: string): void {
+  if (!ENV_NAME_RE.test(name)) {
+    throw new Error(
+      `Environment name "${name}" must match ${ENV_NAME_RE.source} (letters, digits, underscore, dash only).`
+    );
+  }
+}
+
 /**
  * Adds a new environment. The first environment added is automatically set as active.
  *
  * @param name - Unique name for the environment.
  * @param env - Environment connection details.
  * @returns The updated configuration.
+ * @throws If `name` contains path-unsafe characters.
  */
 export async function addEnv(
   name: string,
   env: Environment
 ): Promise<VexConfig> {
+  assertValidEnvName(name);
   const config = await loadConfig();
   const isFirst = Object.keys(config.environments).length === 0;
   const updated: VexConfig = {
@@ -202,4 +220,14 @@ export function getSchemaPath(envName: string): string {
  */
 export function getFragmentsDir(envName: string): string {
   return join(FRAGMENTS_DIR, envName);
+}
+
+/**
+ * Returns the directory where saved operations (full query/mutation documents
+ * with default variables) for the given environment are stored. The directory
+ * is not pre-created — callers writing to it must `mkdir(..., { recursive: true })`
+ * first.
+ */
+export function getOperationsDir(envName: string): string {
+  return join(OPERATIONS_DIR, envName);
 }

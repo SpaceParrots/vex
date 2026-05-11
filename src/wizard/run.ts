@@ -5,7 +5,7 @@
  * maybe save → render & execute.
  */
 
-import { intro, outro, text, isCancel, cancel, log } from "@clack/prompts";
+import { intro, outro, text, confirm, isCancel, cancel, log } from "@clack/prompts";
 import {
   GraphQLObjectType,
   GraphQLUnionType,
@@ -25,6 +25,7 @@ import {
   successBranches,
 } from "../schema-model/classify.js";
 import { listFragments, getFragmentSdl } from "../services/fragments.js";
+import { saveOperation, detectSensitiveKeys } from "../services/operations.js";
 import { buildAndExecute, buildDocument } from "../services/builder.js";
 import type { Selection } from "../schema-model/types.js";
 import type { FragmentDefinition } from "../schema-model/render.js";
@@ -41,7 +42,12 @@ export interface RunWizardInput {
   readonly fragmentName?: string;
   readonly maxDepth?: number;
   readonly dryRun?: boolean;
-  readonly quiet?: boolean;
+  /** When true, print the rendered GraphQL document and variables before executing. */
+  readonly verbose?: boolean;
+  /** When set, persist the built document + variables as a reusable operation. */
+  readonly saveAs?: string;
+  /** Allow overwriting an existing saved operation with the same name. */
+  readonly overwriteSaved?: boolean;
 }
 
 function bail(): never {
@@ -248,11 +254,42 @@ export async function runWizard(input: RunWizardInput): Promise<void> {
     fragments: fragmentDefinitions,
   });
 
-  if (!input.quiet) {
+  if (input.verbose) {
     log.message("--- GraphQL ---");
     console.log(built.query);
     log.message("--- Variables ---");
     console.log(JSON.stringify(built.variables, null, 2));
+  }
+
+  if (input.saveAs) {
+    const sensitive = detectSensitiveKeys(built.variables as Record<string, unknown>);
+    let proceed = true;
+    if (sensitive.length > 0) {
+      log.warn(
+        `Variables include keys that look sensitive: ${sensitive.join(", ")}. ` +
+          `Saved operation files are stored unencrypted on disk.`
+      );
+      const ok = await confirm({
+        message: "Save anyway?",
+        initialValue: false,
+      });
+      if (isCancel(ok)) bail();
+      proceed = Boolean(ok);
+    }
+    if (proceed) {
+      const meta = await saveOperation({
+        envName: ctx.envName,
+        name: input.saveAs,
+        kind: input.kind,
+        rootField: op.name,
+        document: built.query,
+        variables: built.variables as Record<string, unknown>,
+        overwrite: input.overwriteSaved,
+      });
+      log.success(`Saved operation "${meta.name}" → ${meta.path}`);
+    } else {
+      log.info("Skipped saving operation.");
+    }
   }
 
   if (input.dryRun) {
@@ -268,7 +305,7 @@ export async function runWizard(input: RunWizardInput): Promise<void> {
     selection,
     fragments: fragmentDefinitions,
   });
-  log.message("--- Response ---");
+  if (input.verbose) log.message("--- Response ---");
   console.log(JSON.stringify(data, null, 2));
   outro("Done.");
 }

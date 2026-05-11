@@ -1,6 +1,8 @@
 /** @module commands/env — CLI subcommands for managing Vendure environments (add, list, switch, remove, set, show). */
 
 import { Command } from "commander";
+import { writeFile, mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 import {
   addEnvironment,
   removeEnvironment,
@@ -8,35 +10,83 @@ import {
   updateEnvironment,
   listEnvironments,
   showEnvironment,
+  statusEnvironment,
 } from "../services/env.js";
+import { getSchemaPath } from "../config.js";
+import { runEnvAddWizard } from "../wizard/envAdd.js";
 import { printJson, printSuccess, printInfo, printTable, handleError } from "../output.js";
 
 /** Creates the `vex env` command group with add, list, switch, remove, set, and show subcommands. */
 export function createEnvCommand(): Command {
-  const env = new Command("env").description("Manage Vendure environments");
+  const env = new Command("env").description("Manage Vendure environments").addHelpText(
+    "after",
+    `
+Examples:
+  $ vex env add dev
+      Interactive: prompts for URL, API key, and validates by fetching the schema.
+  $ vex env add staging --url https://api.example.com/admin-api --api-key sk-xxx
+      Non-interactive: validates schema fetch unless --no-validate is passed.
+  $ vex env add prod --url https://api.example.com/admin-api --api-key sk-yyy \\
+      --schema-type file --schema-value ./schema-admin.graphql
+      Skip introspection by pointing to a local SDL file (useful when introspection is disabled).
+  $ vex env status dev
+      Check endpoint reachability + schema accessibility (exits non-zero on failure).
+`
+  );
 
   env
     .command("add <name>")
-    .description("Add a new environment")
-    .requiredOption("--url <url>", "Vendure Admin API URL")
-    .requiredOption("--api-key <key>", "Vendure API key")
+    .description("Add a new environment (interactive when --url or --api-key is missing)")
+    .option("--url <url>", "Vendure Admin API URL")
+    .option("--api-key <key>", "Vendure API key")
     .option("--schema-type <type>", "Schema source: endpoint or file")
     .option("--schema-value <value>", "Schema source value")
-    .option("--fetch-schema", "Fetch schema immediately")
+    .option("--no-validate", "Skip schema-fetch validation (non-interactive only)")
     .action(async (name: string, opts) => {
       try {
+        const interactive = !opts.url || !opts.apiKey;
+        let url: string = opts.url ?? "";
+        let apiKey: string = opts.apiKey ?? "";
+        let schemaType: "endpoint" | "file" | undefined = opts.schemaType;
+        let schemaValue: string | undefined = opts.schemaValue;
+        let cachedSdl: string | undefined;
+
+        if (interactive) {
+          const wiz = await runEnvAddWizard({
+            name,
+            url: opts.url,
+            apiKey: opts.apiKey,
+            schemaType: opts.schemaType,
+            schemaValue: opts.schemaValue,
+          });
+          url = wiz.result.url;
+          apiKey = wiz.result.apiKey;
+          schemaType = wiz.result.schemaType;
+          schemaValue = wiz.result.schemaValue;
+          cachedSdl = wiz.sdl || undefined;
+        }
+
+        const fetchSchema = !interactive && opts.validate !== false && !cachedSdl;
+
         const result = await addEnvironment({
           name,
-          url: opts.url,
-          apiKey: opts.apiKey,
-          schemaType: opts.schemaType,
-          schemaValue: opts.schemaValue,
-          fetchSchema: opts.fetchSchema,
+          url,
+          apiKey,
+          schemaType,
+          schemaValue,
+          fetchSchema,
         });
+
+        if (cachedSdl) {
+          const schemaPath = getSchemaPath(name);
+          await mkdir(dirname(schemaPath), { recursive: true });
+          await writeFile(schemaPath, cachedSdl, "utf-8");
+        }
 
         let msg = `Environment "${result.name}" added.`;
         if (result.isActive) msg += " Set as active.";
-        if (result.schemaFetched) msg += " Schema fetched.";
+        if (cachedSdl) msg += " Schema cached.";
+        else if (result.schemaFetched) msg += " Schema fetched.";
         if (result.schemaError) msg += ` Schema fetch failed: ${result.schemaError}`;
         printSuccess(msg);
       } catch (err) {
@@ -111,12 +161,35 @@ export function createEnvCommand(): Command {
     });
 
   env
-    .command("show [name]")
+    .command("show <name>")
     .description("Show environment details")
-    .action(async (name?: string) => {
+    .action(async (name: string) => {
       try {
         const info = await showEnvironment(name);
         printJson(info);
+      } catch (err) {
+        handleError(err);
+      }
+    });
+
+  env
+    .command("status <name>")
+    .description("Check endpoint reachability and schema accessibility")
+    .option("--json", "Print machine-readable JSON output")
+    .action(async (name: string, opts: { json?: boolean }) => {
+      try {
+        const status = await statusEnvironment(name);
+        if (opts.json) {
+          printJson(status);
+          if (!status.endpoint.ok || !status.schema.ok) process.exit(1);
+          return;
+        }
+        const mark = (c: { ok: boolean }): string => (c.ok ? "OK " : "ERR");
+        printInfo(`Environment: ${status.name}${status.active ? " (active)" : ""}`);
+        printInfo(`URL:         ${status.url}`);
+        printInfo(`Endpoint:    ${mark(status.endpoint)}  ${status.endpoint.detail}`);
+        printInfo(`Schema:      ${mark(status.schema)}  ${status.schema.detail}`);
+        if (!status.endpoint.ok || !status.schema.ok) process.exit(1);
       } catch (err) {
         handleError(err);
       }

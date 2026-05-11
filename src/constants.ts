@@ -24,3 +24,10 @@ export const DEFAULT_SELECTOR_MAX_DEPTH = 3;
 
 /** Hard cap for the flat path selector's --max-depth flag. */
 export const MAX_SELECTOR_DEPTH = 6;
+
+/**
+ * Variable-name patterns that look like they hold a secret. Saved-operation
+ * tooling warns the user before persisting variables whose top-level keys
+ * match these patterns, since saved operation files live unencrypted on disk.
+ */
+export const SENSITIVE_VAR_NAME_RE = /password|secret|token|apikey|api_key|credential|authorization|bearer/i;

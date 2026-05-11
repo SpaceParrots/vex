@@ -10,7 +10,9 @@ interface BuildOpts {
   fragment?: string;
   maxDepth?: number;
   dryRun?: boolean;
-  quiet?: boolean;
+  verbose?: boolean;
+  save?: string;
+  overwrite?: boolean;
 }
 
 export function createBuildCommand(): Command {
@@ -21,7 +23,25 @@ export function createBuildCommand(): Command {
     .option("--fragment <name>", "Use a saved fragment for field selection (skips selector)")
     .option("--max-depth <n>", "Override the flat-path selector max depth", (v) => Number(v))
     .option("--dry-run", "Print the constructed GraphQL document and exit without executing")
-    .option("--quiet", "Skip the GraphQL preview, just print the response")
+    .option("--verbose", "Also print the rendered GraphQL document and variables before executing (default: response only)")
+    .option("--save <name>", "Persist the built operation (document + variables) for later replay with `vex run`")
+    .option("--overwrite", "Allow --save to replace an existing saved operation with the same name")
+    .addHelpText(
+      "after",
+      `
+Examples:
+  $ vex build -q customers
+      Interactive: pick an operation, prompt for variables, pick fields, run it.
+  $ vex build -q contents --dry-run
+      Build a query but print it instead of executing.
+  $ vex build -q orders --fragment OrderSummary
+      Use a saved fragment for the field selection and skip the field picker.
+  $ vex build -q contents --save ContentsPublished --dry-run
+      Build, save under a name, and exit without hitting the server.
+  $ vex build -m createCustomer --save NewCustomer --overwrite
+      Persist (overwriting an existing entry) — replay later with \`vex run NewCustomer\`.
+`
+    )
     .action(async (opts: BuildOpts) => {
       try {
         const isQuery = opts.query !== undefined;
@@ -43,7 +63,9 @@ export function createBuildCommand(): Command {
           fragmentName: opts.fragment,
           maxDepth: opts.maxDepth,
           dryRun: Boolean(opts.dryRun),
-          quiet: Boolean(opts.quiet),
+          verbose: Boolean(opts.verbose),
+          saveAs: opts.save,
+          overwriteSaved: Boolean(opts.overwrite),
         });
       } catch (err) {
         handleError(err);

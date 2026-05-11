@@ -6,7 +6,7 @@
  * For other args, prompt by scalar/enum/JSON type.
  */
 
-import { text, select, confirm, isCancel, cancel, multiselect } from "@clack/prompts";
+import { text, select, confirm, isCancel, cancel, multiselect, log } from "@clack/prompts";
 import {
   GraphQLNonNull,
   GraphQLScalarType,
@@ -16,8 +16,10 @@ import {
   type GraphQLArgument,
   type GraphQLSchema,
   type GraphQLInputType,
+  type GraphQLNamedType,
 } from "graphql";
 import { isListOptionsInput } from "../schema-model/classify.js";
+import { coerceInputValue } from "../schema-model/coerce.js";
 import { DEFAULT_PAGE_SIZE, DEFAULT_SKIP } from "../constants.js";
 
 function bail(): never {
@@ -161,11 +163,14 @@ async function promptListOptions(
             options: Object.keys(opType.getFields()).map((n) => ({ value: n, label: n })),
           });
           if (isCancel(opName)) bail();
-          const valRaw = await text({
-            message: `Value for ${String(fieldName)} ${String(opName)}:`,
-          });
-          if (isCancel(valRaw)) bail();
-          filterObj[String(fieldName)] = { [String(opName)]: String(valRaw ?? "") };
+          const opField = opType.getFields()[String(opName)];
+          const opNamed = getNamedType(opField.type);
+          const value = await promptOperatorValue(
+            `${String(fieldName)}.${String(opName)}`,
+            opField.type,
+            opNamed
+          );
+          filterObj[String(fieldName)] = { [String(opName)]: value };
 
           const cont = await confirm({ message: "Add another filter?", initialValue: false });
           if (isCancel(cont)) bail();
@@ -177,6 +182,44 @@ async function promptListOptions(
   }
 
   return out;
+}
+
+/**
+ * Prompts for a single filter operator value, coercing to the operator field's
+ * declared GraphQL input type so that Boolean/Int/Float/list/object values are
+ * sent in the format the server expects.
+ */
+async function promptOperatorValue(
+  label: string,
+  type: GraphQLInputType,
+  named: GraphQLNamedType
+): Promise<unknown> {
+  if (named instanceof GraphQLScalarType && named.name === "Boolean") {
+    const v = await confirm({ message: `Value for ${label} (Boolean):` });
+    if (isCancel(v)) bail();
+    return Boolean(v);
+  }
+
+  if (named instanceof GraphQLEnumType) {
+    const v = await select({
+      message: `Value for ${label} (${named.name}):`,
+      options: named.getValues().map((e) => ({ value: e.name, label: e.name })),
+    });
+    if (isCancel(v)) bail();
+    return String(v);
+  }
+
+  while (true) {
+    const raw = await text({
+      message: `Value for ${label} (${named.name}):`,
+    });
+    if (isCancel(raw)) bail();
+    try {
+      return coerceInputValue(String(raw ?? ""), type);
+    } catch (err) {
+      log.error(`${(err as Error).message} Try again.`);
+    }
+  }
 }
 
 /* --------------------------- entry point --------------------------- */
