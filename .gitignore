@@ -3,6 +3,21 @@ node_modules/
 
 # Build output
 dist/
+*.tsbuildinfo
+
+# Test artifacts
+coverage/
+.vitest-cache/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Atomic-write leftovers (saveFragment / saveOperation use .tmp on crash)
+*.tmp
 
 # IDE
 .idea/
@@ -22,3 +37,4 @@ Thumbs.db
 
 # Claude Code
 .claude/
+/docs/superpowers/
