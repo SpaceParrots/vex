@@ -114,15 +114,21 @@ export async function addEnvironment(input: AddEnvInput): Promise<AddEnvResult> 
 
 /** Input for updating an existing environment's fields. */
 export interface UpdateEnvInput {
-  readonly name: string;
+  readonly name?: string;
   readonly url?: string;
   readonly apiKey?: string;
   readonly schemaType?: "endpoint" | "file";
   readonly schemaValue?: string;
 }
 
-/** Updates an environment's configuration. Returns the list of updated field names. */
-export async function updateEnvironment(input: UpdateEnvInput): Promise<readonly string[]> {
+/** Result of an environment update — the resolved env name and the fields that changed. */
+export interface UpdateEnvResult {
+  readonly name: string;
+  readonly updated: readonly string[];
+}
+
+/** Updates an environment's configuration. Defaults to the active environment when `name` is omitted. */
+export async function updateEnvironment(input: UpdateEnvInput): Promise<UpdateEnvResult> {
   const fields: Partial<Environment> = {};
   const updated: string[] = [];
 
@@ -146,8 +152,13 @@ export async function updateEnvironment(input: UpdateEnvInput): Promise<readonly
     throw new Error("No fields to update. Provide at least one of: --url, --api-key, --schema-type.");
   }
 
-  await updateEnvConfig(input.name, fields);
-  return updated;
+  const targetName = input.name ?? (await loadConfig()).activeEnvironment;
+  if (!targetName) {
+    throw new Error("No environment specified and no active environment set.");
+  }
+
+  await updateEnvConfig(targetName, fields);
+  return { name: targetName, updated };
 }
 
 /** Removes an environment by name. */
