@@ -16,7 +16,7 @@ const SetupInputSchema = z.object({
     "Action to perform: add, remove, list, switch, show, or set"
   ),
   name: z.string().optional().describe(
-    "Environment name (required for add/remove/switch, optional for show)"
+    "Environment name (required for add/remove/switch, optional for show/set — defaults to active)"
   ),
   url: z.string().optional().describe("Vendure Admin API URL (required for add)"),
   apiKey: z.string().optional().describe("Vendure API key (required for add)"),
@@ -98,8 +98,7 @@ export function registerSetupTool(server: McpServer): void {
         }
 
         case "set": {
-          if (!input.name) throw new Error("'name' is required for set action.");
-          const updated = await updateEnvironment({
+          const result = await updateEnvironment({
             name: input.name,
             url: input.url,
             apiKey: input.apiKey,
@@ -107,7 +106,7 @@ export function registerSetupTool(server: McpServer): void {
             schemaValue: input.schemaValue,
           });
           return {
-            content: [{ type: "text" as const, text: `Environment "${input.name}" updated: ${updated.join(", ")}.` }],
+            content: [{ type: "text" as const, text: `Environment "${result.name}" updated: ${result.updated.join(", ")}.` }],
           };
         }
       }

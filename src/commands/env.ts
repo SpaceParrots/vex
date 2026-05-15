@@ -139,31 +139,31 @@ Examples:
     });
 
   env
-    .command("set <name>")
-    .description("Update a configuration field of an environment")
+    .command("set [name]")
+    .description("Update a configuration field of an environment (defaults to active)")
     .option("--url <url>", "New Vendure Admin API URL")
     .option("--api-key <key>", "New Vendure API key")
     .option("--schema-type <type>", "Schema source: endpoint or file")
     .option("--schema-value <value>", "Schema source value")
-    .action(async (name: string, opts) => {
+    .action(async (name: string | undefined, opts) => {
       try {
-        const updated = await updateEnvironment({
+        const result = await updateEnvironment({
           name,
           url: opts.url,
           apiKey: opts.apiKey,
           schemaType: opts.schemaType,
           schemaValue: opts.schemaValue,
         });
-        printSuccess(`Environment "${name}" updated: ${updated.join(", ")}.`);
+        printSuccess(`Environment "${result.name}" updated: ${result.updated.join(", ")}.`);
       } catch (err) {
         handleError(err);
       }
     });
 
   env
-    .command("show <name>")
-    .description("Show environment details")
-    .action(async (name: string) => {
+    .command("show [name]")
+    .description("Show environment details (defaults to active)")
+    .action(async (name: string | undefined) => {
       try {
         const info = await showEnvironment(name);
         printJson(info);
@@ -173,10 +173,10 @@ Examples:
     });
 
   env
-    .command("status <name>")
-    .description("Check endpoint reachability and schema accessibility")
+    .command("status [name]")
+    .description("Check endpoint reachability and schema accessibility (defaults to active)")
     .option("--json", "Print machine-readable JSON output")
-    .action(async (name: string, opts: { json?: boolean }) => {
+    .action(async (name: string | undefined, opts: { json?: boolean }) => {
       try {
         const status = await statusEnvironment(name);
         if (opts.json) {

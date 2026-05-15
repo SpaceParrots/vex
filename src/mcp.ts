@@ -37,6 +37,8 @@ const { version } = require("../package.json") as { version: string };
 const SERVER_INSTRUCTIONS = `
 vex exposes the Vendure Admin GraphQL API as MCP tools, including custom plugin extensions.
 
+No interactive authentication or login flow is required — vex authenticates to Vendure via the API key stored in the active environment (sent as the \`vendure-api-key\` header on every request). If a tool returns an auth error, the key is missing, wrong, or revoked; ask the user to update it via \`vex_setup\` rather than initiating a login.
+
 If \`vex_setup\` action="show" reports no active env, ask the user for URL + API key and add one. The cached schema lives at the resource \`vendure://schema/<envName>\`; call \`vex_refetch_schema\` if stale.
 
 # Choosing the right tool
