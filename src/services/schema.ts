@@ -6,7 +6,8 @@
  */
 
 import { parse, type DefinitionNode } from "graphql";
-import { getActiveEnv, loadConfig } from "../config.js";
+import { loadConfig } from "../config.js";
+import { getCurrentEnv } from "../env-context.js";
 import { refetchSchema } from "../schema.js";
 
 /** Result returned after fetching and analyzing a schema. */
@@ -36,7 +37,7 @@ export async function fetchSchemaForEnv(environment?: string): Promise<SchemaFet
     name = environment;
     env = target;
   } else {
-    const active = await getActiveEnv();
+    const active = await getCurrentEnv();
     name = active.name;
     env = active.env;
   }

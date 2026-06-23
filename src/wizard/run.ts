@@ -14,7 +14,7 @@ import {
   type GraphQLSchema,
   type GraphQLNamedType,
 } from "graphql";
-import { getActiveEnv } from "../config.js";
+import { getCurrentEnv } from "../env-context.js";
 import { loadSchema, refetchSchema } from "../schema.js";
 import { parseSchemaFromSdl } from "../schema-model/parse.js";
 import { reachableLeafPaths } from "../schema-model/walk.js";
@@ -85,7 +85,7 @@ function selectionFromPaths(typeForWalk: GraphQLObjectType, depth: number): Sele
 }
 
 async function ensureSchema(): Promise<{ envName: string; schema: GraphQLSchema }> {
-  const { name, env } = await getActiveEnv();
+  const { name, env } = await getCurrentEnv();
   let sdl: string;
   try {
     sdl = await loadSchema(env, name);
