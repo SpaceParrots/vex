@@ -1,19 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../src/env-context.js", () => ({
-  resolveEnv: vi.fn(),
+  getCurrentEnv: vi.fn(),
 }));
 
-import { resolveEnv } from "../../src/env-context.js";
+import { getCurrentEnv } from "../../src/env-context.js";
 import { currentEnvLine } from "../../src/services/env.js";
 
-const mockedResolveEnv = vi.mocked(resolveEnv);
+const mockedGetCurrentEnv = vi.mocked(getCurrentEnv);
 
 describe("currentEnvLine", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("formats a VEX_ENV resolution with host and reason", async () => {
-    mockedResolveEnv.mockResolvedValue({
+    mockedGetCurrentEnv.mockResolvedValue({
       name: "staging",
       env: { url: "https://staging.example.com/admin-api", apiKey: "x" },
       source: "VEX_ENV",
@@ -24,7 +24,7 @@ describe("currentEnvLine", () => {
   });
 
   it("formats an active resolution", async () => {
-    mockedResolveEnv.mockResolvedValue({
+    mockedGetCurrentEnv.mockResolvedValue({
       name: "dev",
       env: { url: "https://dev.example.com/admin-api", apiKey: "x" },
       source: "active",
@@ -33,7 +33,18 @@ describe("currentEnvLine", () => {
   });
 
   it("returns 'none configured' when resolution throws", async () => {
-    mockedResolveEnv.mockRejectedValue(new Error("No environment configured."));
+    mockedGetCurrentEnv.mockRejectedValue(new Error("No environment configured."));
     expect(await currentEnvLine()).toBe("none configured");
+  });
+
+  it("formats a param resolution with host and reason", async () => {
+    mockedGetCurrentEnv.mockResolvedValue({
+      name: "staging",
+      env: { url: "https://staging.example.com/admin-api", apiKey: "x" },
+      source: "param",
+    });
+    expect(await currentEnvLine()).toBe(
+      "staging → staging.example.com (via env param)"
+    );
   });
 });

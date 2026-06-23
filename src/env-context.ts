@@ -16,7 +16,7 @@ import {
 } from "./config.js";
 
 /** Where a resolved environment name came from. */
-export type EnvSource = "param" | "VEX_ENV" | "active" | "none";
+export type EnvSource = "param" | "VEX_ENV" | "active";
 
 /** A fully resolved environment plus the source that selected it. */
 export interface ResolvedEnv {
