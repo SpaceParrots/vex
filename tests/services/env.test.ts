@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { noEnvironmentMessage } from "../../src/config.js";
 
 vi.mock("../../src/env-context.js", async (orig) => {
   const actual = await orig<typeof import("../../src/env-context.js")>();
@@ -55,6 +56,24 @@ describe("currentEnvLine", () => {
     });
     expect(await currentEnvLine()).toBe(
       "staging → staging.example.com (via env param)"
+    );
+  });
+});
+
+describe("noEnvironmentMessage", () => {
+  it("returns the 'no environments configured' string when the map is empty", () => {
+    expect(noEnvironmentMessage({})).toBe(
+      "No environments configured. Add one with `vex env add` (or the vex_setup tool)."
+    );
+  });
+
+  it("returns the 'no environment selected' string listing available names when the map is non-empty", () => {
+    const envs = {
+      a: { url: "https://a.example.com/admin-api", apiKey: "k-a" },
+      b: { url: "https://b.example.com/admin-api", apiKey: "k-b" },
+    };
+    expect(noEnvironmentMessage(envs)).toBe(
+      "No environment selected. Pass an explicit env name or run `vex env switch <name>` to set one active. Available: a, b."
     );
   });
 });

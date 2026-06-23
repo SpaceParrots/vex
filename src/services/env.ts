@@ -18,6 +18,7 @@ import {
   loadConfig,
   getSchemaPath,
   envNotFoundMessage,
+  noEnvironmentMessage,
   type Environment,
 } from "../config.js";
 import { refetchSchema } from "../schema.js";
@@ -154,9 +155,10 @@ export async function updateEnvironment(input: UpdateEnvInput): Promise<UpdateEn
     throw new Error("No fields to update. Provide at least one of: --url, --api-key, --schema-type.");
   }
 
-  const targetName = input.name ?? (await loadConfig()).activeEnvironment;
+  const config = await loadConfig();
+  const targetName = input.name ?? config.activeEnvironment;
   if (!targetName) {
-    throw new Error("No environment specified and no active environment set.");
+    throw new Error(noEnvironmentMessage(config.environments));
   }
 
   await updateEnvConfig(targetName, fields);
@@ -273,7 +275,7 @@ export async function statusEnvironment(name?: string): Promise<EnvStatusResult>
   const config = await loadConfig();
   const targetName = name ?? config.activeEnvironment;
   if (!targetName) {
-    throw new Error("No environment specified and no active environment set.");
+    throw new Error(noEnvironmentMessage(config.environments));
   }
   const env = config.environments[targetName];
   if (!env) {
@@ -299,7 +301,7 @@ export async function showEnvironment(name?: string): Promise<EnvShowResult> {
   const config = await loadConfig();
   const targetName = name ?? config.activeEnvironment;
   if (!targetName) {
-    throw new Error("No environment specified and no active environment set.");
+    throw new Error(noEnvironmentMessage(config.environments));
   }
   const env = config.environments[targetName];
   if (!env) {

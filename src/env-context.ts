@@ -13,6 +13,7 @@ import {
   loadConfig,
   assertValidEnvName,
   envNotFoundMessage,
+  noEnvironmentMessage,
   type Environment,
 } from "./config.js";
 
@@ -74,10 +75,7 @@ export async function resolveEnv(override?: string): Promise<ResolvedEnv> {
     name = config.activeEnvironment;
     source = "active";
   } else {
-    throw new NoEnvironmentError(
-      "No environment configured. Add one via the vex_setup tool or `vex env add`, " +
-        "or set VEX_ENV / pass an explicit env name."
-    );
+    throw new NoEnvironmentError(noEnvironmentMessage(config.environments));
   }
 
   assertValidEnvName(name);

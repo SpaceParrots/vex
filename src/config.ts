@@ -80,9 +80,7 @@ export async function getActiveEnv(): Promise<{
   const config = await loadConfig();
   const name = config.activeEnvironment;
   if (!name || !config.environments[name]) {
-    throw new Error(
-      "No active environment configured. Use the vex_setup tool to add one."
-    );
+    throw new Error(noEnvironmentMessage(config.environments));
   }
   return { name, env: config.environments[name] };
 }
@@ -105,6 +103,22 @@ export function envNotFoundMessage(
   const available = Object.keys(environments).join(", ") || "(none)";
   const via = source ? ` (selected via ${source})` : "";
   return `Environment "${name}" not found${via}. Available: ${available}.`;
+}
+
+/**
+ * Builds a consistent "no environment to act on" message. Distinguishes the
+ * truly-empty case (no environments configured) from the no-selection case
+ * (environments exist but none is active / named), listing available names
+ * in the latter.
+ */
+export function noEnvironmentMessage(
+  environments: Record<string, Environment>
+): string {
+  const names = Object.keys(environments);
+  if (names.length === 0) {
+    return "No environments configured. Add one with `vex env add` (or the vex_setup tool).";
+  }
+  return `No environment selected. Pass an explicit env name or run \`vex env switch <name>\` to set one active. Available: ${names.join(", ")}.`;
 }
 
 /**
