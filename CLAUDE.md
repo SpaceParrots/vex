@@ -16,9 +16,12 @@ npm run dev          # Run directly with tsx (no compile needed)
 npm run start        # Run compiled dist/index.js
 npm run lint         # ESLint on src/
 npm run typecheck    # tsc --noEmit
+npm test             # Run the Vitest suite once
+npm run test:watch   # Vitest in watch mode
+npm run test:coverage # Vitest with v8 coverage (80% thresholds on covered modules)
 ```
 
-No test framework is configured.
+Tests use **Vitest** (`tests/**/*.test.ts`); see `vitest.config.ts` for coverage scope and thresholds.
 
 ## Design Principles
 
