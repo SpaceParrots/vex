@@ -42,6 +42,9 @@ No interactive authentication or login flow is required — vex authenticates to
 
 If \`vex_setup\` action="show" reports no active env, ask the user for URL + API key and add one. The cached schema lives at the resource \`vendure://schema/<envName>\`; call \`vex_refetch_schema\` if stale.
 
+# Choosing the environment
+Every tool accepts an optional \`env\` param to target a specific environment for that call; without it, vex uses \`VEX_ENV\` (set per project) and then the active environment. Call \`vex_current_env\` to see which environment is currently in use.
+
 # Choosing the right tool
 Pick the highest-level tool that matches the user's request:
 - **Typed CRUD tools** (\`vex_get_customers\`, \`vex_create_product\`,

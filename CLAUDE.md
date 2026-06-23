@@ -74,6 +74,7 @@ Commands and tools are thin wrappers; business logic lives in services.
 ### Infrastructure
 
 - **`src/config.ts`** — Environment management. Config persisted at `~/.vendure-vex/config.json`. Multiple named environments with url, apiKey, and optional schemaSource.
+- **`src/env-context.ts`** — Per-call environment resolution. `getCurrentEnv()` is the universal resolver used by `getClient()` and every env-name consumer; precedence is **explicit `env` param / CLI `--env` > `VEX_ENV` > active environment**. MCP tools opt in via `envAwareTool` (`src/tools/env-aware.ts`); the CLI via the root `--env` flag.
 - **`src/constants.ts`** — Shared constants (pagination defaults, language code, API key header name, masking parameters).
 - **`src/client.ts`** — GraphQL client factory using `graphql-request` with `vendure-api-key` header. Exports `getClient()` convenience helper.
 - **`src/schema.ts`** — Schema introspection and caching at `~/.vendure-vex/schemas/*.graphql`. Exposed as MCP resource (`vendure://schema/{envName}`).
