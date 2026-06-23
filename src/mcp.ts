@@ -22,6 +22,7 @@ import { registerChannelTools } from "./tools/channels.js";
 import { registerSchemaIntrospectionTools } from "./tools/schemaIntrospection.js";
 import { registerFragmentTools } from "./tools/fragments.js";
 import { registerOperationTools } from "./tools/operations.js";
+import { registerCurrentEnvTool } from "./tools/current-env.js";
 import { loadConfig } from "./config.js";
 import { loadSchema } from "./schema.js";
 
@@ -115,6 +116,7 @@ export async function startMcpServer(): Promise<void> {
   );
 
   registerSetupTool(server);
+  registerCurrentEnvTool(server);
   registerRefetchSchemaTool(server);
   registerQueryTool(server);
   registerMutateTool(server);

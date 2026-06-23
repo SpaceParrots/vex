@@ -22,6 +22,7 @@ import {
 import { refetchSchema } from "../schema.js";
 import { createClient } from "../client.js";
 import { API_KEY_MASK_LENGTH, API_KEY_MASK_SUFFIX } from "../constants.js";
+import { resolveEnv } from "../env-context.js";
 
 interface GraphQLRequestError {
   readonly response: {
@@ -310,4 +311,26 @@ export async function showEnvironment(name?: string): Promise<EnvShowResult> {
     apiKeyMasked: env.apiKey.slice(0, API_KEY_MASK_LENGTH) + API_KEY_MASK_SUFFIX,
     schemaSource: env.schemaSource,
   };
+}
+
+/**
+ * Returns a single compact line describing the environment currently in use:
+ * `name → host (via VEX_ENV | via active)`, or `none configured` when nothing
+ * resolves. Never includes the API key.
+ */
+export async function currentEnvLine(): Promise<string> {
+  let resolved;
+  try {
+    resolved = await resolveEnv();
+  } catch {
+    return "none configured";
+  }
+  let host: string;
+  try {
+    host = new URL(resolved.env.url).host;
+  } catch {
+    host = resolved.env.url;
+  }
+  const via = resolved.source === "VEX_ENV" ? "via VEX_ENV" : "via active";
+  return `${resolved.name} → ${host} (${via})`;
 }
