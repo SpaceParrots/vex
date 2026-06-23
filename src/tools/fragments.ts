@@ -2,10 +2,11 @@
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getActiveEnv } from "../config.js";
+import { getCurrentEnv } from "../env-context.js";
 import { loadSchema } from "../schema.js";
 import { parseSchemaFromSdl } from "../schema-model/parse.js";
 import { jsonContent } from "../output.js";
+import { envAwareTool } from "./env-aware.js";
 import {
   listFragments,
   getFragmentSdl,
@@ -14,13 +15,13 @@ import {
 } from "../services/fragments.js";
 
 async function loadCtx() {
-  const { name, env } = await getActiveEnv();
+  const { name, env } = await getCurrentEnv();
   const sdl = await loadSchema(env, name);
   return { envName: name, schema: parseSchemaFromSdl(name, sdl) };
 }
 
 export function registerFragmentTools(server: McpServer): void {
-  server.tool(
+  envAwareTool(server,
     "vex_list_fragments",
     "List saved GraphQL fragments for the active environment, optionally filtered by on-clause type.",
     {
@@ -32,7 +33,7 @@ export function registerFragmentTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_get_fragment",
     "Return the raw SDL of a saved fragment.",
     {
@@ -45,7 +46,7 @@ export function registerFragmentTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_save_fragment",
     "Persist a GraphQL fragment definition to the active environment's fragment store. Validates the selection against the cached schema before writing.",
     {
@@ -60,7 +61,7 @@ export function registerFragmentTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_delete_fragment",
     "Delete a saved fragment from the active environment.",
     {

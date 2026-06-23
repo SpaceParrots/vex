@@ -3,10 +3,11 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { executeQuery } from "../services/query.js";
+import { envAwareTool } from "./env-aware.js";
 
 /** Registers the `vex_query` MCP tool with error-aware response handling. */
 export function registerQueryTool(server: McpServer): void {
-  server.tool(
+  envAwareTool(server,
     "vex_query",
     "Execute a GraphQL query against the active Vendure Admin API environment.",
     {

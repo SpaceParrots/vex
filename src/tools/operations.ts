@@ -2,9 +2,10 @@
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getActiveEnv } from "../config.js";
+import { getCurrentEnv } from "../env-context.js";
 import { getClient } from "../client.js";
 import { jsonContent } from "../output.js";
+import { envAwareTool } from "./env-aware.js";
 import {
   listOperations,
   loadOperation,
@@ -13,7 +14,7 @@ import {
 } from "../services/operations.js";
 
 export function registerOperationTools(server: McpServer): void {
-  server.tool(
+  envAwareTool(server,
     "vex_list_saved_operations",
     "List saved (replayable) GraphQL operations for the active environment. A saved operation is a previously-built query or mutation persisted with its default variables that can be replayed via vex_run_saved_operation. Distinct from vex_list_operations, which lists operations available on the schema. Optionally filter by kind (query/mutation) or by the rootField the operation targets.",
     {
@@ -27,24 +28,24 @@ export function registerOperationTools(server: McpServer): void {
         .describe("Filter by the root field name (e.g. `contents`, `createCustomer`)."),
     },
     async ({ kind, rootField }) => {
-      const { name: envName } = await getActiveEnv();
+      const { name: envName } = await getCurrentEnv();
       return jsonContent(await listOperations({ envName, kind, rootField }));
     }
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_get_saved_operation",
     "Return the full saved-operation record (name, kind, rootField, document, default variables, timestamps) for the active environment.",
     {
       name: z.string().describe("Saved operation name (CamelCase)."),
     },
     async ({ name }) => {
-      const { name: envName } = await getActiveEnv();
+      const { name: envName } = await getCurrentEnv();
       return jsonContent(await loadOperation({ envName, name }));
     }
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_run_saved_operation",
     "Execute a saved GraphQL operation by name against the active environment. Optionally override top-level variables; overrides are applied on top of the saved defaults via a shallow merge.",
     {
@@ -63,7 +64,7 @@ export function registerOperationTools(server: McpServer): void {
         ),
     },
     async ({ name, variableOverrides, replaceVariables }) => {
-      const { name: envName } = await getActiveEnv();
+      const { name: envName } = await getCurrentEnv();
       const rec = await loadOperation({ envName, name });
       const base = replaceVariables ?? rec.variables;
       // Always merge through mergeVariables so reserved-key guards apply.
@@ -77,14 +78,14 @@ export function registerOperationTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_delete_saved_operation",
     "Delete a saved operation from the active environment.",
     {
       name: z.string().describe("Saved operation name (CamelCase)."),
     },
     async ({ name }) => {
-      const { name: envName } = await getActiveEnv();
+      const { name: envName } = await getCurrentEnv();
       return jsonContent(await deleteOperation({ envName, name }));
     }
   );

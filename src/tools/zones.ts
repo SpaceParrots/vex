@@ -14,10 +14,11 @@ import {
   listCountries,
 } from "../services/zones.js";
 import { jsonContent } from "../output.js";
+import { envAwareTool } from "./env-aware.js";
 
 /** Registers all `vex_*_zone*` and `vex_*_country*` MCP tools. */
 export function registerZoneTools(server: McpServer): void {
-  server.tool(
+  envAwareTool(server,
     "vex_get_zones",
     "List zones with optional pagination.",
     {
@@ -27,14 +28,14 @@ export function registerZoneTools(server: McpServer): void {
     async (input) => jsonContent(await listZones(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_get_zone",
     "Get a single zone by ID with its country/region members.",
     { id: z.string().describe("Zone ID") },
     async (input) => jsonContent(await getZone(input.id))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_create_zone",
     "Create a new zone. Optionally assign country/region members immediately.",
     {
@@ -44,7 +45,7 @@ export function registerZoneTools(server: McpServer): void {
     async (input) => jsonContent(await createZone(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_update_zone",
     "Update an existing zone.",
     {
@@ -54,14 +55,14 @@ export function registerZoneTools(server: McpServer): void {
     async (input) => jsonContent(await updateZone(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_delete_zone",
     "Delete a zone by ID.",
     { id: z.string().describe("Zone ID") },
     async (input) => jsonContent(await deleteZone(input.id))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_add_members_to_zone",
     "Add countries/regions to an existing zone.",
     {
@@ -71,7 +72,7 @@ export function registerZoneTools(server: McpServer): void {
     async (input) => jsonContent(await addMembersToZone(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_remove_members_from_zone",
     "Remove countries/regions from an existing zone.",
     {
@@ -81,7 +82,7 @@ export function registerZoneTools(server: McpServer): void {
     async (input) => jsonContent(await removeMembersFromZone(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_create_country",
     "Create a new country/region.",
     {
@@ -92,7 +93,7 @@ export function registerZoneTools(server: McpServer): void {
     async (input) => jsonContent(await createCountry(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_get_countries",
     "List available countries/regions with optional pagination.",
     {

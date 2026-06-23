@@ -3,10 +3,11 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { executeMutation } from "../services/query.js";
+import { envAwareTool } from "./env-aware.js";
 
 /** Registers the `vex_mutate` MCP tool with error-aware response handling. */
 export function registerMutateTool(server: McpServer): void {
-  server.tool(
+  envAwareTool(server,
     "vex_mutate",
     "Execute a GraphQL mutation against the active Vendure Admin API environment.",
     {
