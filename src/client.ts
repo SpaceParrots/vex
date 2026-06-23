@@ -1,6 +1,6 @@
 import { GraphQLClient } from "graphql-request";
 import type { Environment } from "./config.js";
-import { getActiveEnv } from "./config.js";
+import { getCurrentEnv } from "./env-context.js";
 import { API_KEY_HEADER } from "./constants.js";
 
 interface GraphQLErrorShape {
@@ -77,13 +77,13 @@ export function createClient(env: Environment): GraphQLClient {
 }
 
 /**
- * Convenience helper that resolves the active environment and returns
- * a ready-to-use GraphQL client.
+ * Convenience helper that resolves the current environment
+ * (override > VEX_ENV > active) and returns a ready-to-use GraphQL client.
  *
- * @returns A configured {@link GraphQLClient} for the active environment.
- * @throws If no active environment is configured.
+ * @returns A configured {@link GraphQLClient} for the current environment.
+ * @throws If no environment is configured or the resolved name is not found.
  */
 export async function getClient(): Promise<GraphQLClient> {
-  const { env } = await getActiveEnv();
+  const { env } = await getCurrentEnv();
   return createClient(env);
 }

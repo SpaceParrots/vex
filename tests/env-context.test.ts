@@ -6,7 +6,8 @@ vi.mock("../src/config.js", async (orig) => {
 });
 
 import { loadConfig } from "../src/config.js";
-import { resolveEnv } from "../src/env-context.js";
+import { resolveEnv, withEnv } from "../src/env-context.js";
+import { getClient } from "../src/client.js";
 
 const mockedLoadConfig = vi.mocked(loadConfig);
 
@@ -60,5 +61,20 @@ describe("resolveEnv", () => {
 
   it("rejects path-unsafe names", async () => {
     await expect(resolveEnv("../evil")).rejects.toThrow(/must match/);
+  });
+});
+
+describe("getClient honors the ambient override", () => {
+  beforeEach(() => {
+    mockedLoadConfig.mockResolvedValue(structuredClone(CONFIG));
+    delete process.env.VEX_ENV;
+  });
+
+  it("targets the override env's URL", async () => {
+    const client = await withEnv("staging", () => getClient());
+    // graphql-request exposes the endpoint as `url` on the instance.
+    expect((client as unknown as { url: string }).url).toBe(
+      "https://staging.example.com/admin-api"
+    );
   });
 });
