@@ -11,10 +11,11 @@ import {
   addCustomerNote,
 } from "../services/customers.js";
 import { jsonContent } from "../output.js";
+import { envAwareTool } from "./env-aware.js";
 
 /** Registers all `vex_*_customer*` MCP tools for customer operations. */
 export function registerCustomerTools(server: McpServer): void {
-  server.tool(
+  envAwareTool(server,
     "vex_get_customers",
     "List customers with optional filters.",
     {
@@ -26,14 +27,14 @@ export function registerCustomerTools(server: McpServer): void {
     async (input) => jsonContent(await listCustomers(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_get_customer",
     "Get a single customer by ID with full details.",
     { id: z.string().describe("Customer ID") },
     async (input) => jsonContent(await getCustomer(input.id))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_create_customer",
     "Create a new customer.",
     {
@@ -46,7 +47,7 @@ export function registerCustomerTools(server: McpServer): void {
     async (input) => jsonContent(await createCustomer(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_update_customer",
     "Update an existing customer.",
     {
@@ -59,14 +60,14 @@ export function registerCustomerTools(server: McpServer): void {
     async (input) => jsonContent(await updateCustomer(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_delete_customer",
     "Delete a customer by ID.",
     { id: z.string().describe("Customer ID") },
     async (input) => jsonContent(await deleteCustomer(input.id))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_add_customer_note",
     "Add a note to a customer.",
     {

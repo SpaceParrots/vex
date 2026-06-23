@@ -12,10 +12,11 @@ import {
   cancelOrder,
 } from "../services/orders.js";
 import { jsonContent } from "../output.js";
+import { envAwareTool } from "./env-aware.js";
 
 /** Registers all `vex_*_order*` MCP tools for order operations. */
 export function registerOrderTools(server: McpServer): void {
-  server.tool(
+  envAwareTool(server,
     "vex_get_orders",
     "List orders with optional filters.",
     {
@@ -26,21 +27,21 @@ export function registerOrderTools(server: McpServer): void {
     async (input) => jsonContent(await listOrders(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_get_order",
     "Get a single order by ID with full details.",
     { id: z.string().describe("Order ID") },
     async (input) => jsonContent(await getOrder(input.id))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_create_draft_order",
     "Create a new draft order.",
     {},
     async () => jsonContent(await createDraftOrder())
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_add_item_to_draft_order",
     "Add a product variant to a draft order.",
     {
@@ -51,7 +52,7 @@ export function registerOrderTools(server: McpServer): void {
     async (input) => jsonContent(await addItemToDraftOrder(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_set_customer_for_draft_order",
     "Set the customer for a draft order.",
     {
@@ -61,7 +62,7 @@ export function registerOrderTools(server: McpServer): void {
     async (input) => jsonContent(await setCustomerForDraftOrder(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_transition_order",
     "Transition an order to a new state.",
     {
@@ -71,7 +72,7 @@ export function registerOrderTools(server: McpServer): void {
     async (input) => jsonContent(await transitionOrder(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_cancel_order",
     "Cancel an order.",
     {

@@ -9,10 +9,11 @@ import {
   updateChannel,
 } from "../services/channels.js";
 import { jsonContent } from "../output.js";
+import { envAwareTool } from "./env-aware.js";
 
 /** Registers all `vex_*_channel*` MCP tools for channel operations. */
 export function registerChannelTools(server: McpServer): void {
-  server.tool(
+  envAwareTool(server,
     "vex_get_channels",
     "List channels with optional pagination.",
     {
@@ -22,21 +23,21 @@ export function registerChannelTools(server: McpServer): void {
     async (input) => jsonContent(await listChannels(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_get_channel",
     "Get a channel by ID.",
     { id: z.string().describe("Channel ID") },
     async (input) => jsonContent(await getChannel(input.id))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_get_active_channel",
     "Get the currently active channel.",
     {},
     async () => jsonContent(await getActiveChannel())
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_update_channel",
     "Update channel settings including default tax zone, default shipping zone, currency, language, and more.",
     {

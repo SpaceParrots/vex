@@ -22,6 +22,7 @@ import { registerChannelTools } from "./tools/channels.js";
 import { registerSchemaIntrospectionTools } from "./tools/schemaIntrospection.js";
 import { registerFragmentTools } from "./tools/fragments.js";
 import { registerOperationTools } from "./tools/operations.js";
+import { registerCurrentEnvTool } from "./tools/current-env.js";
 import { loadConfig } from "./config.js";
 import { loadSchema } from "./schema.js";
 
@@ -40,6 +41,9 @@ vex exposes the Vendure Admin GraphQL API as MCP tools, including custom plugin 
 No interactive authentication or login flow is required — vex authenticates to Vendure via the API key stored in the active environment (sent as the \`vendure-api-key\` header on every request). If a tool returns an auth error, the key is missing, wrong, or revoked; ask the user to update it via \`vex_setup\` rather than initiating a login.
 
 If \`vex_setup\` action="show" reports no active env, ask the user for URL + API key and add one. The cached schema lives at the resource \`vendure://schema/<envName>\`; call \`vex_refetch_schema\` if stale.
+
+# Choosing the environment
+Most tools accept an optional `env` param to target a specific environment for that call; without it, vex uses `VEX_ENV` (set per project) and then the active environment. (`vex_setup` edits config directly, and `vex_refetch_schema` takes an explicit `environment` name.) Call `vex_current_env` to see which environment is currently in use.
 
 # Choosing the right tool
 Pick the highest-level tool that matches the user's request:
@@ -115,6 +119,7 @@ export async function startMcpServer(): Promise<void> {
   );
 
   registerSetupTool(server);
+  registerCurrentEnvTool(server);
   registerRefetchSchemaTool(server);
   registerQueryTool(server);
   registerMutateTool(server);

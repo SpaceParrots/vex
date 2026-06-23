@@ -69,6 +69,7 @@ export async function saveConfig(config: VexConfig): Promise<void> {
 
 /**
  * Returns the active environment's name and configuration.
+ * Retained as the explicit "active environment only" accessor (ignores per-call overrides); most callers should use getCurrentEnv() from env-context instead.
  *
  * @throws If no active environment is set.
  */
@@ -79,14 +80,46 @@ export async function getActiveEnv(): Promise<{
   const config = await loadConfig();
   const name = config.activeEnvironment;
   if (!name || !config.environments[name]) {
-    throw new Error(
-      "No active environment configured. Use the vex_setup tool to add one."
-    );
+    throw new Error(noEnvironmentMessage(config.environments));
   }
   return { name, env: config.environments[name] };
 }
 
 const ENV_NAME_RE = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * Builds a consistent "environment not found" message that lists the configured
+ * environment names, so every lookup path reports the same way.
+ *
+ * @param name - The environment name that was not found.
+ * @param environments - The configured environments map.
+ * @param source - Optional resolution source (e.g. "param", "VEX_ENV") to note how the name was selected.
+ */
+export function envNotFoundMessage(
+  name: string,
+  environments: Record<string, Environment>,
+  source?: string
+): string {
+  const available = Object.keys(environments).join(", ") || "(none)";
+  const via = source ? ` (selected via ${source})` : "";
+  return `Environment "${name}" not found${via}. Available: ${available}.`;
+}
+
+/**
+ * Builds a consistent "no environment to act on" message. Distinguishes the
+ * truly-empty case (no environments configured) from the no-selection case
+ * (environments exist but none is active / named), listing available names
+ * in the latter.
+ */
+export function noEnvironmentMessage(
+  environments: Record<string, Environment>
+): string {
+  const names = Object.keys(environments);
+  if (names.length === 0) {
+    return "No environments configured. Add one with `vex env add` (or the vex_setup tool).";
+  }
+  return `No environment selected. Pass an explicit env name or run \`vex env switch <name>\` to set one active. Available: ${names.join(", ")}.`;
+}
 
 /**
  * Throws if the environment name contains characters that could escape the
@@ -134,7 +167,7 @@ export async function addEnv(
 export async function removeEnv(name: string): Promise<VexConfig> {
   const config = await loadConfig();
   if (!config.environments[name]) {
-    throw new Error(`Environment "${name}" not found.`);
+    throw new Error(envNotFoundMessage(name, config.environments));
   }
   const { [name]: _, ...rest } = config.environments;
   const updated: VexConfig = {
@@ -168,7 +201,7 @@ export async function updateEnv(
   const config = await loadConfig();
   const existing = config.environments[name];
   if (!existing) {
-    throw new Error(`Environment "${name}" not found.`);
+    throw new Error(envNotFoundMessage(name, config.environments));
   }
   const updated: VexConfig = {
     ...config,
@@ -189,7 +222,7 @@ export async function updateEnv(
 export async function switchEnv(name: string): Promise<VexConfig> {
   const config = await loadConfig();
   if (!config.environments[name]) {
-    throw new Error(`Environment "${name}" not found.`);
+    throw new Error(envNotFoundMessage(name, config.environments));
   }
   const updated: VexConfig = { ...config, activeEnvironment: name };
   await saveConfig(updated);

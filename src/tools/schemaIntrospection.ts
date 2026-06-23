@@ -2,10 +2,11 @@
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getActiveEnv } from "../config.js";
+import { getCurrentEnv } from "../env-context.js";
 import { loadSchema } from "../schema.js";
 import { parseSchemaFromSdl } from "../schema-model/parse.js";
 import { jsonContent } from "../output.js";
+import { envAwareTool } from "./env-aware.js";
 import {
   describeType,
   listCustomFields,
@@ -14,13 +15,13 @@ import {
 } from "../services/schema-introspect.js";
 
 async function loadParsedSchema() {
-  const { name, env } = await getActiveEnv();
+  const { name, env } = await getCurrentEnv();
   const sdl = await loadSchema(env, name);
   return parseSchemaFromSdl(name, sdl);
 }
 
 export function registerSchemaIntrospectionTools(server: McpServer): void {
-  server.tool(
+  envAwareTool(server,
     "vex_describe_type",
     "Return SDL for a type plus SDL for every type it references (depth 1 or 2). Skips built-in scalars.",
     {
@@ -34,7 +35,7 @@ export function registerSchemaIntrospectionTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_list_custom_fields",
     "List the custom fields configured on a Vendure entity (e.g. 'Customer', 'Product', 'Order'). Returns null when the entity has no typed customFields block.",
     {
@@ -46,7 +47,7 @@ export function registerSchemaIntrospectionTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_list_operations",
     "List available top-level queries and mutations, optionally filtered by kind and substring.",
     {
@@ -59,7 +60,7 @@ export function registerSchemaIntrospectionTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_describe_operation",
     "Return the SDL signature of one operation, plus SDL for its arg input types and return type.",
     {

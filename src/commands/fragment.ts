@@ -1,7 +1,7 @@
 /** @module commands/fragment — CLI subcommands for managing saved GraphQL fragments. */
 
 import { Command } from "commander";
-import { getActiveEnv } from "../config.js";
+import { getCurrentEnv } from "../env-context.js";
 import {
   listFragments,
   getFragmentSdl,
@@ -18,7 +18,7 @@ export function createFragmentCommand(): Command {
     .option("--type <name>", "Filter by on-clause type name")
     .action(async (opts: { type?: string }) => {
       try {
-        const { name } = await getActiveEnv();
+        const { name } = await getCurrentEnv();
         const all = await listFragments({ envName: name, onType: opts.type });
         if (all.length === 0) {
           printInfo("No fragments saved.");
@@ -38,7 +38,7 @@ export function createFragmentCommand(): Command {
     .description("Print the SDL of a saved fragment")
     .action(async (name: string) => {
       try {
-        const { name: envName } = await getActiveEnv();
+        const { name: envName } = await getCurrentEnv();
         const sdl = await getFragmentSdl({ envName, name });
         printInfo(sdl);
       } catch (err) {
@@ -51,7 +51,7 @@ export function createFragmentCommand(): Command {
     .description("Delete a saved fragment")
     .action(async (name: string) => {
       try {
-        const { name: envName } = await getActiveEnv();
+        const { name: envName } = await getCurrentEnv();
         const result = await deleteFragment({ envName, name });
         if (result.deleted) {
           printSuccess(`Fragment "${name}" deleted.`);

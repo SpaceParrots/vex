@@ -17,11 +17,14 @@ import {
   listEnvs as listEnvsConfig,
   loadConfig,
   getSchemaPath,
+  envNotFoundMessage,
+  noEnvironmentMessage,
   type Environment,
 } from "../config.js";
 import { refetchSchema } from "../schema.js";
 import { createClient } from "../client.js";
 import { API_KEY_MASK_LENGTH, API_KEY_MASK_SUFFIX } from "../constants.js";
+import { getCurrentEnv, NoEnvironmentError } from "../env-context.js";
 
 interface GraphQLRequestError {
   readonly response: {
@@ -152,9 +155,10 @@ export async function updateEnvironment(input: UpdateEnvInput): Promise<UpdateEn
     throw new Error("No fields to update. Provide at least one of: --url, --api-key, --schema-type.");
   }
 
-  const targetName = input.name ?? (await loadConfig()).activeEnvironment;
+  const config = await loadConfig();
+  const targetName = input.name ?? config.activeEnvironment;
   if (!targetName) {
-    throw new Error("No environment specified and no active environment set.");
+    throw new Error(noEnvironmentMessage(config.environments));
   }
 
   await updateEnvConfig(targetName, fields);
@@ -271,11 +275,11 @@ export async function statusEnvironment(name?: string): Promise<EnvStatusResult>
   const config = await loadConfig();
   const targetName = name ?? config.activeEnvironment;
   if (!targetName) {
-    throw new Error("No environment specified and no active environment set.");
+    throw new Error(noEnvironmentMessage(config.environments));
   }
   const env = config.environments[targetName];
   if (!env) {
-    throw new Error(`Environment "${targetName}" not found.`);
+    throw new Error(envNotFoundMessage(targetName, config.environments));
   }
 
   const [endpoint, schema] = await Promise.all([
@@ -297,11 +301,11 @@ export async function showEnvironment(name?: string): Promise<EnvShowResult> {
   const config = await loadConfig();
   const targetName = name ?? config.activeEnvironment;
   if (!targetName) {
-    throw new Error("No environment specified and no active environment set.");
+    throw new Error(noEnvironmentMessage(config.environments));
   }
   const env = config.environments[targetName];
   if (!env) {
-    throw new Error(`Environment "${targetName}" not found.`);
+    throw new Error(envNotFoundMessage(targetName, config.environments));
   }
   return {
     name: targetName,
@@ -310,4 +314,32 @@ export async function showEnvironment(name?: string): Promise<EnvShowResult> {
     apiKeyMasked: env.apiKey.slice(0, API_KEY_MASK_LENGTH) + API_KEY_MASK_SUFFIX,
     schemaSource: env.schemaSource,
   };
+}
+
+/**
+ * Returns a single compact line describing the environment currently in use:
+ * `name → host (via VEX_ENV | via active)`, or `none configured` when nothing
+ * resolves. Never includes the API key.
+ */
+export async function currentEnvLine(): Promise<string> {
+  let resolved;
+  try {
+    resolved = await getCurrentEnv();
+  } catch (err) {
+    if (err instanceof NoEnvironmentError) return "none configured";
+    return err instanceof Error ? err.message : "none configured";
+  }
+  let host: string;
+  try {
+    host = new URL(resolved.env.url).host;
+  } catch {
+    host = resolved.env.url;
+  }
+  const via =
+    resolved.source === "param"
+      ? "via env param"
+      : resolved.source === "VEX_ENV"
+        ? "via VEX_ENV"
+        : "via active";
+  return `${resolved.name} → ${host} (${via})`;
 }

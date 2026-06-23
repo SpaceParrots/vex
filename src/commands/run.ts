@@ -1,7 +1,7 @@
 /** @module commands/run — CLI command for executing a saved GraphQL operation by name. */
 
 import { Command } from "commander";
-import { getActiveEnv } from "../config.js";
+import { getCurrentEnv } from "../env-context.js";
 import { getClient } from "../client.js";
 import {
   loadOperation,
@@ -57,7 +57,7 @@ Use \`vex operation list\` to see saved names.
     )
     .action(async (name: string, opts: RunOpts) => {
       try {
-        const { name: envName } = await getActiveEnv();
+        const { name: envName } = await getCurrentEnv();
         const rec = await loadOperation({ envName, name });
 
         let variables: Record<string, unknown> = rec.variables as Record<string, unknown>;

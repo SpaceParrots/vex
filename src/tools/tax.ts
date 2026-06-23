@@ -14,10 +14,11 @@ import {
   deleteTaxRate,
 } from "../services/tax.js";
 import { jsonContent } from "../output.js";
+import { envAwareTool } from "./env-aware.js";
 
 /** Registers all `vex_*_tax_*` MCP tools for tax category and rate operations. */
 export function registerTaxTools(server: McpServer): void {
-  server.tool(
+  envAwareTool(server,
     "vex_get_tax_categories",
     "List tax categories.",
     {
@@ -27,14 +28,14 @@ export function registerTaxTools(server: McpServer): void {
     async (input) => jsonContent(await listTaxCategories(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_get_tax_category",
     "Get a tax category by ID.",
     { id: z.string().describe("Tax category ID") },
     async (input) => jsonContent(await getTaxCategory(input.id))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_create_tax_category",
     "Create a new tax category (e.g. 'Standard', 'Reduced', 'Zero-rated').",
     {
@@ -44,14 +45,14 @@ export function registerTaxTools(server: McpServer): void {
     async (input) => jsonContent(await createTaxCategory(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_delete_tax_category",
     "Delete a tax category by ID.",
     { id: z.string().describe("Tax category ID") },
     async (input) => jsonContent(await deleteTaxCategory(input.id))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_get_tax_rates",
     "List tax rates.",
     {
@@ -61,14 +62,14 @@ export function registerTaxTools(server: McpServer): void {
     async (input) => jsonContent(await listTaxRates(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_get_tax_rate",
     "Get a tax rate by ID.",
     { id: z.string().describe("Tax rate ID") },
     async (input) => jsonContent(await getTaxRate(input.id))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_create_tax_rate",
     "Create a new tax rate. Links a tax category to a zone with a percentage value.",
     {
@@ -82,7 +83,7 @@ export function registerTaxTools(server: McpServer): void {
     async (input) => jsonContent(await createTaxRate(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_update_tax_rate",
     "Update an existing tax rate.",
     {
@@ -97,7 +98,7 @@ export function registerTaxTools(server: McpServer): void {
     async (input) => jsonContent(await updateTaxRate(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_delete_tax_rate",
     "Delete a tax rate by ID.",
     { id: z.string().describe("Tax rate ID") },

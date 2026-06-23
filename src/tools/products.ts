@@ -11,10 +11,11 @@ import {
   createProductVariants,
 } from "../services/products.js";
 import { jsonContent } from "../output.js";
+import { envAwareTool } from "./env-aware.js";
 
 /** Registers all `vex_*_product*` MCP tools for product operations. */
 export function registerProductTools(server: McpServer): void {
-  server.tool(
+  envAwareTool(server,
     "vex_get_products",
     "List products with optional filters.",
     {
@@ -25,14 +26,14 @@ export function registerProductTools(server: McpServer): void {
     async (input) => jsonContent(await listProducts(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_get_product",
     "Get a single product by ID with variants, options, and facet values.",
     { id: z.string().describe("Product ID") },
     async (input) => jsonContent(await getProduct(input.id))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_create_product",
     "Create a new product.",
     {
@@ -44,7 +45,7 @@ export function registerProductTools(server: McpServer): void {
     async (input) => jsonContent(await createProduct(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_update_product",
     "Update an existing product.",
     {
@@ -57,14 +58,14 @@ export function registerProductTools(server: McpServer): void {
     async (input) => jsonContent(await updateProduct(input))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_delete_product",
     "Delete a product by ID.",
     { id: z.string().describe("Product ID") },
     async (input) => jsonContent(await deleteProduct(input.id))
   );
 
-  server.tool(
+  envAwareTool(server,
     "vex_create_product_variants",
     "Create variants for an existing product.",
     {

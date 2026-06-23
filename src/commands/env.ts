@@ -11,6 +11,7 @@ import {
   listEnvironments,
   showEnvironment,
   statusEnvironment,
+  currentEnvLine,
 } from "../services/env.js";
 import { getSchemaPath } from "../config.js";
 import { runEnvAddWizard } from "../wizard/envAdd.js";
@@ -190,6 +191,17 @@ Examples:
         printInfo(`Endpoint:    ${mark(status.endpoint)}  ${status.endpoint.detail}`);
         printInfo(`Schema:      ${mark(status.schema)}  ${status.schema.detail}`);
         if (!status.endpoint.ok || !status.schema.ok) process.exit(1);
+      } catch (err) {
+        handleError(err);
+      }
+    });
+
+  env
+    .command("current")
+    .description("Show which environment is currently in use (env param > VEX_ENV > active)")
+    .action(async () => {
+      try {
+        printInfo(await currentEnvLine());
       } catch (err) {
         handleError(err);
       }

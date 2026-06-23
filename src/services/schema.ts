@@ -6,7 +6,8 @@
  */
 
 import { parse, type DefinitionNode } from "graphql";
-import { getActiveEnv, loadConfig } from "../config.js";
+import { loadConfig, envNotFoundMessage } from "../config.js";
+import { getCurrentEnv } from "../env-context.js";
 import { refetchSchema } from "../schema.js";
 
 /** Result returned after fetching and analyzing a schema. */
@@ -31,12 +32,12 @@ export async function fetchSchemaForEnv(environment?: string): Promise<SchemaFet
     const config = await loadConfig();
     const target = config.environments[environment];
     if (!target) {
-      throw new Error(`Environment "${environment}" not found.`);
+      throw new Error(envNotFoundMessage(environment, config.environments));
     }
     name = environment;
     env = target;
   } else {
-    const active = await getActiveEnv();
+    const active = await getCurrentEnv();
     name = active.name;
     env = active.env;
   }

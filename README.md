@@ -88,6 +88,33 @@ vex env show <name>                                   # Show environment details
 vex env status <name> [--json]                        # Check endpoint reachability + schema accessibility
 ```
 
+### Targeting a specific environment
+
+vex resolves the environment for each operation in this order:
+
+1. An explicit name — the `env` parameter on any MCP tool, or `--env <name>` on any CLI command.
+2. The `VEX_ENV` environment variable — handy as a per-project default.
+3. The globally active environment (`vex env switch <name>`).
+
+Per-project default via `.mcp.json` (no switching needed):
+
+```json
+{
+  "mcpServers": {
+    "vex": { "command": "vex", "env": { "VEX_ENV": "myproject-staging" } }
+  }
+}
+```
+
+Check what's in use any time:
+
+```bash
+vex env current
+# → myproject-staging → staging.example.com (via VEX_ENV)
+```
+
+The `vex_current_env` MCP tool returns the same one-line summary.
+
 ### Schema
 
 ```bash

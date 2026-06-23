@@ -1,7 +1,7 @@
 /** @module commands/operation — CLI subcommands for managing saved GraphQL operations. */
 
 import { Command } from "commander";
-import { getActiveEnv } from "../config.js";
+import { getCurrentEnv } from "../env-context.js";
 import {
   listOperations,
   loadOperation,
@@ -18,7 +18,7 @@ export function createOperationCommand(): Command {
     .option("--root-field <name>", "Filter by the root field the operation targets")
     .action(async (opts: { kind?: "query" | "mutation"; rootField?: string }) => {
       try {
-        const { name: envName } = await getActiveEnv();
+        const { name: envName } = await getCurrentEnv();
         const all = await listOperations({
           envName,
           kind: opts.kind,
@@ -42,7 +42,7 @@ export function createOperationCommand(): Command {
     .option("--json", "Output the full JSON record")
     .action(async (name: string, opts: { json?: boolean }) => {
       try {
-        const { name: envName } = await getActiveEnv();
+        const { name: envName } = await getCurrentEnv();
         const rec = await loadOperation({ envName, name });
         if (opts.json) {
           printJson(rec);
@@ -64,7 +64,7 @@ export function createOperationCommand(): Command {
     .description("Delete a saved operation")
     .action(async (name: string) => {
       try {
-        const { name: envName } = await getActiveEnv();
+        const { name: envName } = await getCurrentEnv();
         const result = await deleteOperation({ envName, name });
         if (result.deleted) printSuccess(`Operation "${name}" deleted.`);
         else printInfo(`Operation "${name}" not found.`);
