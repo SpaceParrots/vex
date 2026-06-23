@@ -21,6 +21,7 @@ import { createFragmentCommand } from "./commands/fragment.js";
 import { createBuildCommand } from "./commands/build.js";
 import { createOperationCommand } from "./commands/operation.js";
 import { createRunCommand } from "./commands/run.js";
+import { enterEnvContext } from "./env-context.js";
 
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json") as { version: string };
@@ -33,6 +34,10 @@ export function createCli(): Command {
     .name("vex")
     .description("CLI and MCP server for Vendure Admin API")
     .version(version)
+    .option(
+      "--env <name>",
+      "Target environment for this command (overrides VEX_ENV and the active env)"
+    )
     .addHelpText(
       "after",
       `
@@ -51,6 +56,11 @@ Reusable building blocks:
   operations   full queries/mutations with default variables (vex operation ...)
 `
     );
+
+  program.hook("preAction", (_thisCommand, actionCommand) => {
+    const env = actionCommand.optsWithGlobals().env as string | undefined;
+    enterEnvContext(env);
+  });
 
   program.addCommand(createEnvCommand());
   program.addCommand(createQueryCommand());
