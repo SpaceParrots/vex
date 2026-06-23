@@ -17,12 +17,13 @@ import {
   listEnvs as listEnvsConfig,
   loadConfig,
   getSchemaPath,
+  envNotFoundMessage,
   type Environment,
 } from "../config.js";
 import { refetchSchema } from "../schema.js";
 import { createClient } from "../client.js";
 import { API_KEY_MASK_LENGTH, API_KEY_MASK_SUFFIX } from "../constants.js";
-import { getCurrentEnv } from "../env-context.js";
+import { getCurrentEnv, NoEnvironmentError } from "../env-context.js";
 
 interface GraphQLRequestError {
   readonly response: {
@@ -276,7 +277,7 @@ export async function statusEnvironment(name?: string): Promise<EnvStatusResult>
   }
   const env = config.environments[targetName];
   if (!env) {
-    throw new Error(`Environment "${targetName}" not found.`);
+    throw new Error(envNotFoundMessage(targetName, config.environments));
   }
 
   const [endpoint, schema] = await Promise.all([
@@ -302,7 +303,7 @@ export async function showEnvironment(name?: string): Promise<EnvShowResult> {
   }
   const env = config.environments[targetName];
   if (!env) {
-    throw new Error(`Environment "${targetName}" not found.`);
+    throw new Error(envNotFoundMessage(targetName, config.environments));
   }
   return {
     name: targetName,
@@ -322,8 +323,9 @@ export async function currentEnvLine(): Promise<string> {
   let resolved;
   try {
     resolved = await getCurrentEnv();
-  } catch {
-    return "none configured";
+  } catch (err) {
+    if (err instanceof NoEnvironmentError) return "none configured";
+    return err instanceof Error ? err.message : "none configured";
   }
   let host: string;
   try {

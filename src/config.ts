@@ -90,6 +90,24 @@ export async function getActiveEnv(): Promise<{
 const ENV_NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /**
+ * Builds a consistent "environment not found" message that lists the configured
+ * environment names, so every lookup path reports the same way.
+ *
+ * @param name - The environment name that was not found.
+ * @param environments - The configured environments map.
+ * @param source - Optional resolution source (e.g. "param", "VEX_ENV") to note how the name was selected.
+ */
+export function envNotFoundMessage(
+  name: string,
+  environments: Record<string, Environment>,
+  source?: string
+): string {
+  const available = Object.keys(environments).join(", ") || "(none)";
+  const via = source ? ` (selected via ${source})` : "";
+  return `Environment "${name}" not found${via}. Available: ${available}.`;
+}
+
+/**
  * Throws if the environment name contains characters that could escape the
  * per-environment directories (`schemas/<name>`, `fragments/<name>`,
  * `operations/<name>`) via path traversal.
@@ -135,7 +153,7 @@ export async function addEnv(
 export async function removeEnv(name: string): Promise<VexConfig> {
   const config = await loadConfig();
   if (!config.environments[name]) {
-    throw new Error(`Environment "${name}" not found.`);
+    throw new Error(envNotFoundMessage(name, config.environments));
   }
   const { [name]: _, ...rest } = config.environments;
   const updated: VexConfig = {
@@ -169,7 +187,7 @@ export async function updateEnv(
   const config = await loadConfig();
   const existing = config.environments[name];
   if (!existing) {
-    throw new Error(`Environment "${name}" not found.`);
+    throw new Error(envNotFoundMessage(name, config.environments));
   }
   const updated: VexConfig = {
     ...config,
@@ -190,7 +208,7 @@ export async function updateEnv(
 export async function switchEnv(name: string): Promise<VexConfig> {
   const config = await loadConfig();
   if (!config.environments[name]) {
-    throw new Error(`Environment "${name}" not found.`);
+    throw new Error(envNotFoundMessage(name, config.environments));
   }
   const updated: VexConfig = { ...config, activeEnvironment: name };
   await saveConfig(updated);

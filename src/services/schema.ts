@@ -6,7 +6,7 @@
  */
 
 import { parse, type DefinitionNode } from "graphql";
-import { loadConfig } from "../config.js";
+import { loadConfig, envNotFoundMessage } from "../config.js";
 import { getCurrentEnv } from "../env-context.js";
 import { refetchSchema } from "../schema.js";
 
@@ -32,7 +32,7 @@ export async function fetchSchemaForEnv(environment?: string): Promise<SchemaFet
     const config = await loadConfig();
     const target = config.environments[environment];
     if (!target) {
-      throw new Error(`Environment "${environment}" not found.`);
+      throw new Error(envNotFoundMessage(environment, config.environments));
     }
     name = environment;
     env = target;

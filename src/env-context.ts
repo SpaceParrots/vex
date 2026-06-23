@@ -12,8 +12,12 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import {
   loadConfig,
   assertValidEnvName,
+  envNotFoundMessage,
   type Environment,
 } from "./config.js";
+
+/** Thrown when no environment can be resolved at all (none configured / no default). */
+export class NoEnvironmentError extends Error {}
 
 /** Where a resolved environment name came from. */
 export type EnvSource = "param" | "VEX_ENV" | "active";
@@ -70,7 +74,7 @@ export async function resolveEnv(override?: string): Promise<ResolvedEnv> {
     name = config.activeEnvironment;
     source = "active";
   } else {
-    throw new Error(
+    throw new NoEnvironmentError(
       "No environment configured. Add one via the vex_setup tool or `vex env add`, " +
         "or set VEX_ENV / pass an explicit env name."
     );
@@ -80,10 +84,7 @@ export async function resolveEnv(override?: string): Promise<ResolvedEnv> {
 
   const env = config.environments[name];
   if (!env) {
-    const available = Object.keys(config.environments).join(", ") || "(none)";
-    throw new Error(
-      `Environment "${name}" not found (selected via ${source}). Available: ${available}.`
-    );
+    throw new Error(envNotFoundMessage(name, config.environments, source));
   }
 
   return { name, env, source };
