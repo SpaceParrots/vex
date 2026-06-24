@@ -25,6 +25,7 @@ import { registerOperationTools } from "./tools/operations.js";
 import { registerCurrentEnvTool } from "./tools/current-env.js";
 import { loadConfig } from "./config.js";
 import { loadSchema } from "./schema.js";
+import { VEX_TOOLS_ENV, VEX_TOOLS_LEAN_VALUES } from "./constants.js";
 
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json") as { version: string };
@@ -42,34 +43,41 @@ No interactive authentication or login flow is required — vex authenticates to
 
 If \`vex_setup\` action="show" reports no active env, ask the user for URL + API key and add one. The cached schema lives at the resource \`vendure://schema/<envName>\`; call \`vex_refetch_schema\` if stale.
 
+# Action-dispatch tools
+Most tools take an \`action\` parameter that selects the operation; each tool's description lists its valid actions and the fields each one needs. Set \`action\` first, then supply only that action's fields. Example: \`vex_customers {action:"list", filterByEmail:"…"}\` or \`vex_products {action:"get", id:"…"}\`.
+
 # Choosing the environment
 Most tools accept an optional \`env\` param to target a specific environment for that call; without it, vex uses \`VEX_ENV\` (set per project) and then the active environment. (\`vex_setup\` edits config directly, and \`vex_refetch_schema\` takes an explicit \`environment\` name.) Call \`vex_current_env\` to see which environment is currently in use.
 
 # Choosing the right tool
 Pick the highest-level tool that matches the user's request:
-- **Typed CRUD tools** (\`vex_get_customers\`, \`vex_create_product\`,
-  \`vex_transition_order\`, \`vex_get_channels\`, \`vex_get_tax_rates\`, etc.)
-  are the preferred path for standard Vendure entities. They validate input
-  with Zod and return shaped JSON.
-- **Schema introspection** (\`vex_list_operations\`, \`vex_describe_operation\`,
-  \`vex_describe_type\`, \`vex_list_custom_fields\`) — use to discover what is
-  available before falling back to raw GraphQL. \`vex_list_operations\` here
-  lists operations on the **schema**; do not confuse it with
-  \`vex_list_saved_operations\` (replayable queries the user has saved).
-- **Raw GraphQL** (\`vex_query\`, \`vex_mutate\`) — escape hatch for custom
-  plugin operations or anything the typed tools don't cover. Always read the
-  schema resource first so the document is correct.
+- **Typed entity tools** (\`vex_customers\`, \`vex_products\`, \`vex_orders\`,
+  \`vex_zones\`, \`vex_tax\`, \`vex_channels\`) are the preferred path for standard
+  Vendure entities. They validate input with Zod and return shaped JSON.
+- **Schema discovery** (\`vex_schema\` with action \`list_operations\`,
+  \`describe_operation\`, \`describe_type\`, or \`list_custom_fields\`) — use to
+  discover what's available before falling back to raw GraphQL. This lists
+  operations on the **schema**; don't confuse it with \`vex_operations\`
+  (replayable queries the user has saved).
+- **Raw GraphQL** (\`vex_query\`, \`vex_mutate\`) — escape hatch for custom plugin
+  operations or anything the typed tools don't cover. Read the schema resource
+  or use \`vex_schema\` first so the document is correct.
 
 # Reusable queries
-- **Fragments** (\`vex_list_fragments\`, \`vex_save_fragment\`,
-  \`vex_get_fragment\`, \`vex_delete_fragment\`) are reusable selection sets on
-  a specific type. Reach for them when you keep rewriting the same field list.
-- **Saved operations** (\`vex_list_saved_operations\`, \`vex_get_saved_operation\`,
-  \`vex_run_saved_operation\`, \`vex_delete_saved_operation\`) are full queries
-  or mutations persisted with their default variables. \`vex_run_saved_operation\`
-  re-executes a saved one with optional \`variableOverrides\` (shallow-merge into
-  defaults) or \`replaceVariables\` (full replacement). Save operations the user
-  is likely to repeat.
+- **Fragments** (\`vex_fragments\` with action \`list\`/\`get\`/\`save\`/\`delete\`)
+  are reusable selection sets on a specific type. Reach for them when you keep
+  rewriting the same field list.
+- **Saved operations** (\`vex_operations\` with action \`list\`/\`get\`/\`run\`/\`delete\`)
+  are full queries or mutations persisted with their default variables.
+  \`action:"run"\` re-executes one with optional \`variableOverrides\`
+  (shallow-merge into defaults) or \`replaceVariables\` (full replacement). Save
+  operations the user is likely to repeat.
+
+# Lean mode
+When started with the env var \`VEX_TOOLS=lean\`, only the universal interface is
+exposed (\`vex_setup\`, \`vex_current_env\`, \`vex_refetch_schema\`, \`vex_query\`,
+\`vex_mutate\`, \`vex_schema\`). Drive everything via \`vex_schema\` discovery plus
+raw \`vex_query\`/\`vex_mutate\`.
 
 # Vendure quick reference
 Mutations often return unions (\`Entity | ErrorResult\`) — branch on the response and surface \`errorCode\`/\`message\` from the error branch. List queries take \`ListOptions { take, skip, filter, sort }\`; default to small \`take\` (~10). Filter values use real JSON types (\`true\` not \`"true"\`, \`10\` not \`"10"\`). Never echo full API keys back to the user.
@@ -103,9 +111,43 @@ function registerSchemaResource(
   );
 }
 
+/** Returns true when `VEX_TOOLS` selects the minimal ("lean") tool surface. */
+function isLeanMode(): boolean {
+  const mode = (process.env[VEX_TOOLS_ENV] ?? "full").trim().toLowerCase();
+  return (VEX_TOOLS_LEAN_VALUES as readonly string[]).includes(mode);
+}
+
 /**
- * Starts the MCP server on stdio, registers all tools, and attempts
- * to load the active environment's schema as a resource.
+ * Registers MCP tools according to `VEX_TOOLS`. The universal interface (env
+ * management, raw GraphQL, schema discovery) is always registered; the typed
+ * entity tools and saved-query stores are added only in full mode. Skipping
+ * them in lean mode removes ~8 tool definitions from the per-session context.
+ */
+function registerTools(server: McpServer, lean: boolean): void {
+  // Universal interface — always available.
+  registerSetupTool(server);
+  registerCurrentEnvTool(server);
+  registerRefetchSchemaTool(server);
+  registerQueryTool(server);
+  registerMutateTool(server);
+  registerSchemaIntrospectionTools(server);
+
+  if (lean) return;
+
+  // Typed entity tools + reusable query stores (full mode only).
+  registerCustomerTools(server);
+  registerProductTools(server);
+  registerOrderTools(server);
+  registerZoneTools(server);
+  registerTaxTools(server);
+  registerChannelTools(server);
+  registerFragmentTools(server);
+  registerOperationTools(server);
+}
+
+/**
+ * Starts the MCP server on stdio, registers tools (honoring `VEX_TOOLS`), and
+ * attempts to load the active environment's schema as a resource.
  */
 export async function startMcpServer(): Promise<void> {
   const server = new McpServer(
@@ -118,20 +160,8 @@ export async function startMcpServer(): Promise<void> {
     }
   );
 
-  registerSetupTool(server);
-  registerCurrentEnvTool(server);
-  registerRefetchSchemaTool(server);
-  registerQueryTool(server);
-  registerMutateTool(server);
-  registerCustomerTools(server);
-  registerProductTools(server);
-  registerOrderTools(server);
-  registerZoneTools(server);
-  registerTaxTools(server);
-  registerChannelTools(server);
-  registerSchemaIntrospectionTools(server);
-  registerFragmentTools(server);
-  registerOperationTools(server);
+  const lean = isLeanMode();
+  registerTools(server, lean);
 
   // Try to load schema on startup and expose it as a resource.
   // Failures are expected on first run or when no environment is configured.
@@ -155,5 +185,5 @@ export async function startMcpServer(): Promise<void> {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("vendure-vex MCP server running on stdio");
+  console.error(`vendure-vex MCP server running on stdio (${lean ? "lean" : "full"} tools)`);
 }

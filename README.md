@@ -216,27 +216,47 @@ Then you can use natural language:
 
 Claude will check if the product exists, create it if needed, find or create a customer, create a draft order, and add items — all by chaining the MCP tools automatically.
 
-Server-level **`instructions`** are shipped with the MCP handshake, so Claude already knows the tool tiers (typed CRUD → schema introspection → raw GraphQL), how saved operations and fragments work, and how to handle Vendure's union-result mutations.
+Server-level **`instructions`** are shipped with the MCP handshake, so Claude already knows the tool tiers (typed entity tools → schema discovery → raw GraphQL), how saved operations and fragments work, and how to handle Vendure's union-result mutations.
 
 ### Available MCP tools
 
-When used as an MCP server, vex exposes ~55 tools across these groups:
+To keep the per-session token cost low, vex groups each entity domain into a **single action-dispatch tool**: you pass an `action` parameter (e.g. `list`, `get`, `create`) plus that action's fields. In full mode vex exposes **14 tools**:
 
-| Group | Example tools | What it covers |
-|-------|--------------|----------------|
-| Setup & schema | `vex_setup`, `vex_refetch_schema` | Add/list/switch envs, refresh the cached schema |
-| Schema introspection | `vex_list_operations`, `vex_describe_operation`, `vex_describe_type`, `vex_list_custom_fields` | Discover what the API supports (great with plugin-extended schemas) |
-| Raw GraphQL | `vex_query`, `vex_mutate` | Escape hatch for custom plugin operations |
-| Customers | `vex_get_customers`, `vex_get_customer`, `vex_create_customer`, `vex_update_customer`, `vex_delete_customer`, `vex_add_customer_note` | |
-| Products | `vex_get_products`, `vex_get_product`, `vex_create_product`, `vex_update_product`, `vex_delete_product`, `vex_create_product_variants` | |
-| Orders | `vex_get_orders`, `vex_get_order`, `vex_create_draft_order`, `vex_add_item_to_draft_order`, `vex_set_customer_for_draft_order`, `vex_transition_order`, `vex_cancel_order` | |
-| Channels | `vex_get_channels`, `vex_get_channel`, `vex_get_active_channel`, `vex_update_channel` | |
-| Zones & countries | `vex_get_zones`, `vex_create_zone`, `vex_add_members_to_zone`, `vex_create_country`, `vex_get_countries`, … | |
-| Tax | `vex_get_tax_categories`, `vex_create_tax_rate`, `vex_update_tax_rate`, … | |
-| Fragments | `vex_list_fragments`, `vex_save_fragment`, `vex_get_fragment`, `vex_delete_fragment` | Reusable field selections |
-| Saved operations | `vex_list_saved_operations`, `vex_get_saved_operation`, `vex_run_saved_operation`, `vex_delete_saved_operation` | Full queries/mutations with default variables, replayable |
+| Group | Tool | Actions |
+|-------|------|---------|
+| Setup & schema | `vex_setup`, `vex_refetch_schema`, `vex_current_env` | (standalone) |
+| Schema discovery | `vex_schema` | `describe_type`, `list_custom_fields`, `list_operations`, `describe_operation` |
+| Raw GraphQL | `vex_query`, `vex_mutate` | (standalone) |
+| Customers | `vex_customers` | `list`, `get`, `create`, `update`, `delete`, `add_note` |
+| Products | `vex_products` | `list`, `get`, `create`, `update`, `delete`, `create_variants` |
+| Orders | `vex_orders` | `list`, `get`, `create_draft`, `add_item`, `set_customer`, `transition`, `cancel` |
+| Channels | `vex_channels` | `list`, `get`, `get_active`, `update` |
+| Zones & countries | `vex_zones` | `list`, `get`, `create`, `update`, `delete`, `add_members`, `remove_members`, `create_country`, `list_countries` |
+| Tax | `vex_tax` | `list_categories`, `get_category`, `create_category`, `delete_category`, `list_rates`, `get_rate`, `create_rate`, `update_rate`, `delete_rate` |
+| Fragments | `vex_fragments` | `list`, `get`, `save`, `delete` |
+| Saved operations | `vex_operations` | `list`, `get`, `run`, `delete` |
+
+Example call: `vex_products` with `{ "action": "get", "id": "5" }`.
 
 The cached GraphQL schema is also exposed as the MCP resource `vendure://schema/<envName>` so Claude can read it as ground truth.
+
+#### Lean mode (`VEX_TOOLS=lean`)
+
+Set the env var `VEX_TOOLS=lean` (alias `minimal`) in your MCP client config to register only the **universal interface** — `vex_setup`, `vex_current_env`, `vex_refetch_schema`, `vex_query`, `vex_mutate`, and `vex_schema` (6 tools). Claude drives Vendure via `vex_schema` discovery plus raw GraphQL, trading some convenience for the smallest possible per-session token footprint. The default (`VEX_TOOLS` unset or `full`) registers all 14 tools.
+
+```jsonc
+{
+  "mcpServers": {
+    "vex": {
+      "command": "npx",
+      "args": ["-y", "@spaceparrots/vex"],
+      "env": { "VEX_TOOLS": "lean" }
+    }
+  }
+}
+```
+
+> Tip: MCP responses are compact JSON by default. Set `VEX_PRETTY_JSON=1` to pretty-print them (useful for debugging, ~30% more tokens).
 
 ## Configuration
 

@@ -64,25 +64,27 @@ Each Vendure entity (customers, products, orders, zones, tax, channels) follows 
 
 2. **Commands** (`src/commands/*.ts`) — CLI wrappers using Commander. Parse args, call service functions, format output via `src/output.ts`.
 
-3. **Tools** (`src/tools/*.ts`) — MCP tool wrappers. Define Zod schemas for input validation, call the same service functions, return results via the shared `jsonContent()` helper from `src/output.ts`.
+3. **Tools** (`src/tools/*.ts`) — MCP tool wrappers. To minimize the always-on tool-definition surface MCP clients load every session, each entity domain is exposed as a **single action-dispatch tool** (e.g. `vex_customers` with an `action` of `list`/`get`/`create`/…) built via the `actionTool` helper in `src/tools/action-tool.ts`. Each action declares its own Zod field shape plus a thin handler that calls the same service function and returns results via `jsonContent()`. `actionTool` merges all action shapes into one flat schema (MCP requires an object-typed `inputSchema`, so a root discriminated union is not usable) and re-validates input against the chosen action's schema at call time.
 
-Commands and tools are thin wrappers; business logic lives in services.
+Commands and tools are thin wrappers; business logic lives in services. CLI commands stay fine-grained (one command per operation); only the MCP tools consolidate.
 
 ### Adding a New Entity Domain
 
 1. Add service functions in `src/services/<entity>.ts` (follow `src/services/customers.ts` as reference)
 2. Add CLI commands in `src/commands/<entity>.ts` and register in `src/cli.ts`
-3. Add MCP tools in `src/tools/<entity>.ts` (export `registerXyzTools(server: McpServer)`) and register in `src/mcp.ts`
+3. Add the MCP tool in `src/tools/<entity>.ts` — export `registerXyzTools(server: McpServer)` that calls `actionTool(server, "vex_<entity>", …)` with one entry per operation (follow `src/tools/customers.ts`), then register it in `src/mcp.ts` inside `registerTools` (in the full-mode block unless it belongs to the lean universal interface).
 
 ### Infrastructure
 
 - **`src/config.ts`** — Environment management. Config persisted at `~/.vendure-vex/config.json`. Multiple named environments with url, apiKey, and optional schemaSource.
 - **`src/env-context.ts`** — Per-call environment resolution. `getCurrentEnv()` is the universal resolver used by `getClient()` and every env-name consumer; precedence is **explicit `env` param / CLI `--env` > `VEX_ENV` > active environment**. MCP tools opt in via `envAwareTool` (`src/tools/env-aware.ts`); the CLI via the root `--env` flag.
-- **`src/constants.ts`** — Shared constants (pagination defaults, language code, API key header name, masking parameters).
+- **`src/constants.ts`** — Shared constants (pagination defaults, language code, API key header name, masking parameters, the `VEX_TOOLS` env-var name).
+- **`src/tools/action-tool.ts`** — `actionTool()` registers one MCP tool that dispatches over an `action` field; `dispatchAction()` (exported, unit-tested) does the per-action Zod validation and dispatch.
+- **Tool gating** — `src/mcp.ts` reads `VEX_TOOLS`: `full` (default) registers all 14 tools; `lean`/`minimal` registers only the universal interface (`vex_setup`, `vex_current_env`, `vex_refetch_schema`, `vex_query`, `vex_mutate`, `vex_schema`).
 - **`src/client.ts`** — GraphQL client factory using `graphql-request` with `vendure-api-key` header. Exports `getClient()` convenience helper.
 - **`src/schema.ts`** — Schema introspection and caching at `~/.vendure-vex/schemas/*.graphql`. Exposed as MCP resource (`vendure://schema/{envName}`).
 - **`src/output.ts`** — CLI output formatting (`printJson`, `printSuccess`, `printError`, `printInfo`, `printTable`, `handleError`) and the shared `jsonContent()` MCP response helper.
 
 ## Conventions
 
-- Tool names are prefixed with `vex_` and use snake_case
+- Tool names are prefixed with `vex_` and use snake_case; `action` values use snake_case too (e.g. `add_note`, `create_variants`)

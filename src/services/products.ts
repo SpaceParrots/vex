@@ -15,7 +15,11 @@ export interface ProductListInput {
   readonly filterByName?: string;
 }
 
-/** Lists products with optional name filter and pagination. */
+/**
+ * Lists products with optional name filter and pagination. Returns lightweight
+ * rows only (no variant detail) to keep MCP responses small; use {@link getProduct}
+ * for a product's full variants, options, facets, and assets.
+ */
 export async function listProducts(input: ProductListInput): Promise<unknown> {
   const client = await getClient();
 
@@ -35,13 +39,6 @@ export async function listProducts(input: ProductListInput): Promise<unknown> {
           createdAt
           updatedAt
           featuredAsset { preview }
-          variants {
-            id
-            name
-            sku
-            price
-            stockOnHand
-          }
         }
         totalItems
       }

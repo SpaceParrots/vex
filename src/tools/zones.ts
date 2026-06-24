@@ -1,4 +1,4 @@
-/** @module tools/zones — MCP tools for zone and country management (list, get, create, update, delete, add/remove-members, create-country, get-countries). */
+/** @module tools/zones — `vex_zones` action-dispatch MCP tool for zone and country management. */
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -14,92 +14,77 @@ import {
   listCountries,
 } from "../services/zones.js";
 import { jsonContent } from "../output.js";
-import { envAwareTool } from "./env-aware.js";
+import { actionTool } from "./action-tool.js";
 
-/** Registers all `vex_*_zone*` and `vex_*_country*` MCP tools. */
+/** Registers the `vex_zones` MCP tool covering all zone and country operations. */
 export function registerZoneTools(server: McpServer): void {
-  envAwareTool(server,
-    "vex_get_zones",
-    "List zones with optional pagination.",
-    {
-      take: z.number().optional().describe("Number of results to return"),
-      skip: z.number().optional().describe("Number of results to skip"),
+  actionTool(server, "vex_zones", "Manage Vendure zones and their country/region members.", {
+    list: {
+      summary: "List zones with optional pagination.",
+      shape: {
+        take: z.number().optional().describe("Number of results to return"),
+        skip: z.number().optional().describe("Number of results to skip"),
+      },
+      handler: async (a) => jsonContent(await listZones(a as Parameters<typeof listZones>[0])),
     },
-    async (input) => jsonContent(await listZones(input))
-  );
-
-  envAwareTool(server,
-    "vex_get_zone",
-    "Get a single zone by ID with its country/region members.",
-    { id: z.string().describe("Zone ID") },
-    async (input) => jsonContent(await getZone(input.id))
-  );
-
-  envAwareTool(server,
-    "vex_create_zone",
-    "Create a new zone. Optionally assign country/region members immediately.",
-    {
-      name: z.string().describe("Zone name (e.g. 'India', 'EU', 'North America')"),
-      memberIds: z.array(z.string()).optional().describe("Country/region IDs to add to the zone"),
+    get: {
+      summary: "Get a single zone by ID with its country/region members.",
+      shape: { id: z.string().describe("Zone ID") },
+      handler: async (a) => jsonContent(await getZone(a.id as string)),
     },
-    async (input) => jsonContent(await createZone(input))
-  );
-
-  envAwareTool(server,
-    "vex_update_zone",
-    "Update an existing zone.",
-    {
-      id: z.string().describe("Zone ID"),
-      name: z.string().optional().describe("New zone name"),
+    create: {
+      summary: "Create a new zone, optionally assigning members immediately.",
+      shape: {
+        name: z.string().describe("Zone name (e.g. 'India', 'EU', 'North America')"),
+        memberIds: z.array(z.string()).optional().describe("Country/region IDs to add to the zone"),
+      },
+      handler: async (a) => jsonContent(await createZone(a as unknown as Parameters<typeof createZone>[0])),
     },
-    async (input) => jsonContent(await updateZone(input))
-  );
-
-  envAwareTool(server,
-    "vex_delete_zone",
-    "Delete a zone by ID.",
-    { id: z.string().describe("Zone ID") },
-    async (input) => jsonContent(await deleteZone(input.id))
-  );
-
-  envAwareTool(server,
-    "vex_add_members_to_zone",
-    "Add countries/regions to an existing zone.",
-    {
-      zoneId: z.string().describe("Zone ID"),
-      memberIds: z.array(z.string()).describe("Country/region IDs to add"),
+    update: {
+      summary: "Update an existing zone.",
+      shape: {
+        id: z.string().describe("Zone ID"),
+        name: z.string().optional().describe("New zone name"),
+      },
+      handler: async (a) => jsonContent(await updateZone(a as unknown as Parameters<typeof updateZone>[0])),
     },
-    async (input) => jsonContent(await addMembersToZone(input))
-  );
-
-  envAwareTool(server,
-    "vex_remove_members_from_zone",
-    "Remove countries/regions from an existing zone.",
-    {
-      zoneId: z.string().describe("Zone ID"),
-      memberIds: z.array(z.string()).describe("Country/region IDs to remove"),
+    delete: {
+      summary: "Delete a zone by ID.",
+      shape: { id: z.string().describe("Zone ID") },
+      handler: async (a) => jsonContent(await deleteZone(a.id as string)),
     },
-    async (input) => jsonContent(await removeMembersFromZone(input))
-  );
-
-  envAwareTool(server,
-    "vex_create_country",
-    "Create a new country/region.",
-    {
-      name: z.string().describe("Country name (e.g. 'India', 'United States')"),
-      code: z.string().describe("ISO country code (e.g. 'IN', 'US', 'GB')"),
-      enabled: z.boolean().optional().describe("Whether the country is enabled (default: true)"),
+    add_members: {
+      summary: "Add countries/regions to an existing zone.",
+      shape: {
+        zoneId: z.string().describe("Zone ID"),
+        memberIds: z.array(z.string()).describe("Country/region IDs to add"),
+      },
+      handler: async (a) => jsonContent(await addMembersToZone(a as unknown as Parameters<typeof addMembersToZone>[0])),
     },
-    async (input) => jsonContent(await createCountry(input))
-  );
-
-  envAwareTool(server,
-    "vex_get_countries",
-    "List available countries/regions with optional pagination.",
-    {
-      take: z.number().optional().describe("Number of results to return"),
-      skip: z.number().optional().describe("Number of results to skip"),
+    remove_members: {
+      summary: "Remove countries/regions from an existing zone.",
+      shape: {
+        zoneId: z.string().describe("Zone ID"),
+        memberIds: z.array(z.string()).describe("Country/region IDs to remove"),
+      },
+      handler: async (a) => jsonContent(await removeMembersFromZone(a as unknown as Parameters<typeof removeMembersFromZone>[0])),
     },
-    async (input) => jsonContent(await listCountries(input))
-  );
+    create_country: {
+      summary: "Create a new country/region.",
+      shape: {
+        name: z.string().describe("Country name (e.g. 'India', 'United States')"),
+        code: z.string().describe("ISO country code (e.g. 'IN', 'US', 'GB')"),
+        enabled: z.boolean().optional().describe("Whether the country is enabled (default: true)"),
+      },
+      handler: async (a) => jsonContent(await createCountry(a as unknown as Parameters<typeof createCountry>[0])),
+    },
+    list_countries: {
+      summary: "List available countries/regions with optional pagination.",
+      shape: {
+        take: z.number().optional().describe("Number of results to return"),
+        skip: z.number().optional().describe("Number of results to skip"),
+      },
+      handler: async (a) => jsonContent(await listCountries(a as Parameters<typeof listCountries>[0])),
+    },
+  });
 }

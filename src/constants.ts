@@ -10,6 +10,17 @@ export const COUNTRIES_PAGE_SIZE = 250;
 /** Default language code used for Vendure translation fields. */
 export const DEFAULT_LANGUAGE_CODE = "en";
 
+/**
+ * Environment variable selecting which MCP tool groups to register, controlling
+ * the always-on tool-definition surface loaded into the client's context.
+ * Unset or "full" registers every tool; "lean" (alias "minimal") registers only
+ * the universal interface (setup, env, schema introspection, raw query/mutate).
+ */
+export const VEX_TOOLS_ENV = "VEX_TOOLS";
+
+/** {@link VEX_TOOLS_ENV} values that select the minimal tool surface. */
+export const VEX_TOOLS_LEAN_VALUES = ["lean", "minimal"] as const;
+
 /** HTTP header name for Vendure API key authentication. */
 export const API_KEY_HEADER = "vendure-api-key";
 
