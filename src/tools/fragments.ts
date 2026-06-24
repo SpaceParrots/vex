@@ -1,4 +1,4 @@
-/** @module tools/fragments — MCP tools for managing saved GraphQL fragments. */
+/** @module tools/fragments — `vex_fragments` action-dispatch MCP tool for managing saved GraphQL fragments. */
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -6,7 +6,7 @@ import { getCurrentEnv } from "../env-context.js";
 import { loadSchema } from "../schema.js";
 import { parseSchemaFromSdl } from "../schema-model/parse.js";
 import { jsonContent } from "../output.js";
-import { envAwareTool } from "./env-aware.js";
+import { actionTool } from "./action-tool.js";
 import {
   listFragments,
   getFragmentSdl,
@@ -20,56 +20,58 @@ async function loadCtx() {
   return { envName: name, schema: parseSchemaFromSdl(name, sdl) };
 }
 
+/** Registers the `vex_fragments` MCP tool covering saved-fragment operations. */
 export function registerFragmentTools(server: McpServer): void {
-  envAwareTool(server,
-    "vex_list_fragments",
-    "List saved GraphQL fragments for the active environment, optionally filtered by on-clause type.",
-    {
-      type: z.string().optional().describe("Filter to fragments whose on-clause matches this type name."),
+  actionTool(server, "vex_fragments", "Manage reusable GraphQL fragments (named selection sets) for the active environment.", {
+    list: {
+      summary: "List saved fragments, optionally filtered by on-clause type.",
+      shape: {
+        type: z.string().optional().describe("Filter to fragments whose on-clause matches this type name."),
+      },
+      handler: async (a) => {
+        const { envName } = await loadCtx();
+        return jsonContent(await listFragments({ envName, onType: a.type as string | undefined }));
+      },
     },
-    async ({ type }) => {
-      const { envName } = await loadCtx();
-      return jsonContent(await listFragments({ envName, onType: type }));
-    }
-  );
-
-  envAwareTool(server,
-    "vex_get_fragment",
-    "Return the raw SDL of a saved fragment.",
-    {
-      name: z.string().describe("Fragment name (CamelCase)."),
+    get: {
+      summary: "Return the raw SDL of a saved fragment.",
+      shape: {
+        name: z.string().describe("Fragment name (CamelCase)."),
+      },
+      handler: async (a) => {
+        const { envName } = await loadCtx();
+        const sdl = await getFragmentSdl({ envName, name: a.name as string });
+        return { content: [{ type: "text" as const, text: sdl }] };
+      },
     },
-    async ({ name }) => {
-      const { envName } = await loadCtx();
-      const sdl = await getFragmentSdl({ envName, name });
-      return { content: [{ type: "text" as const, text: sdl }] };
-    }
-  );
-
-  envAwareTool(server,
-    "vex_save_fragment",
-    "Persist a GraphQL fragment definition to the active environment's fragment store. Validates the selection against the cached schema before writing.",
-    {
-      name: z.string().describe("Fragment name (CamelCase). Must match the name in the SDL."),
-      sdl: z.string().describe("Full SDL: `fragment Name on Type { ... }`."),
-      overwrite: z.boolean().optional().describe("Replace an existing fragment with the same name. Default false."),
+    save: {
+      summary: "Persist a fragment definition, validating its selection against the cached schema before writing.",
+      shape: {
+        name: z.string().describe("Fragment name (CamelCase). Must match the name in the SDL."),
+        sdl: z.string().describe("Full SDL: `fragment Name on Type { ... }`."),
+        overwrite: z.boolean().optional().describe("Replace an existing fragment with the same name. Default false."),
+      },
+      handler: async (a) => {
+        const { envName, schema } = await loadCtx();
+        const result = await saveFragment({
+          envName,
+          name: a.name as string,
+          sdl: a.sdl as string,
+          schema,
+          overwrite: a.overwrite as boolean | undefined,
+        });
+        return jsonContent(result);
+      },
     },
-    async ({ name, sdl, overwrite }) => {
-      const { envName, schema } = await loadCtx();
-      const result = await saveFragment({ envName, name, sdl, schema, overwrite });
-      return jsonContent(result);
-    }
-  );
-
-  envAwareTool(server,
-    "vex_delete_fragment",
-    "Delete a saved fragment from the active environment.",
-    {
-      name: z.string().describe("Fragment name (CamelCase)."),
+    delete: {
+      summary: "Delete a saved fragment.",
+      shape: {
+        name: z.string().describe("Fragment name (CamelCase)."),
+      },
+      handler: async (a) => {
+        const { envName } = await loadCtx();
+        return jsonContent(await deleteFragment({ envName, name: a.name as string }));
+      },
     },
-    async ({ name }) => {
-      const { envName } = await loadCtx();
-      return jsonContent(await deleteFragment({ envName, name }));
-    }
-  );
+  });
 }

@@ -53,7 +53,11 @@ export async function listCustomers(input: CustomerListInput): Promise<unknown> 
   );
 }
 
-/** Retrieves a single customer by ID with addresses and order history. */
+/**
+ * Retrieves a single customer by ID with addresses and recent order history.
+ * The embedded `orders` list is bounded to the 5 most recent orders to keep
+ * MCP responses small (`totalItems` still reflects the full count).
+ */
 export async function getCustomer(id: string): Promise<unknown> {
   const client = await getClient();
 
@@ -80,7 +84,7 @@ export async function getCustomer(id: string): Promise<unknown> {
           defaultShippingAddress
           defaultBillingAddress
         }
-        orders {
+        orders(options: { take: 5, sort: { createdAt: DESC } }) {
           items {
             id
             code

@@ -1,4 +1,4 @@
-/** @module tools/orders — MCP tools for order management (list, get, create-draft, add-item, set-customer, transition, cancel). */
+/** @module tools/orders — `vex_orders` action-dispatch MCP tool (list, get, create_draft, add_item, set_customer, transition, cancel). */
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -12,73 +12,62 @@ import {
   cancelOrder,
 } from "../services/orders.js";
 import { jsonContent } from "../output.js";
-import { envAwareTool } from "./env-aware.js";
+import { actionTool } from "./action-tool.js";
 
-/** Registers all `vex_*_order*` MCP tools for order operations. */
+/** Registers the `vex_orders` MCP tool covering all order operations. */
 export function registerOrderTools(server: McpServer): void {
-  envAwareTool(server,
-    "vex_get_orders",
-    "List orders with optional filters.",
-    {
-      take: z.number().optional().describe("Number of results to return"),
-      skip: z.number().optional().describe("Number of results to skip"),
-      filterByCode: z.string().optional().describe("Filter by order code (contains)"),
+  actionTool(server, "vex_orders", "Manage Vendure orders and draft orders.", {
+    list: {
+      summary: "List orders with optional code filter.",
+      shape: {
+        take: z.number().optional().describe("Number of results to return"),
+        skip: z.number().optional().describe("Number of results to skip"),
+        filterByCode: z.string().optional().describe("Filter by order code (contains)"),
+      },
+      handler: async (a) => jsonContent(await listOrders(a as Parameters<typeof listOrders>[0])),
     },
-    async (input) => jsonContent(await listOrders(input))
-  );
-
-  envAwareTool(server,
-    "vex_get_order",
-    "Get a single order by ID with full details.",
-    { id: z.string().describe("Order ID") },
-    async (input) => jsonContent(await getOrder(input.id))
-  );
-
-  envAwareTool(server,
-    "vex_create_draft_order",
-    "Create a new draft order.",
-    {},
-    async () => jsonContent(await createDraftOrder())
-  );
-
-  envAwareTool(server,
-    "vex_add_item_to_draft_order",
-    "Add a product variant to a draft order.",
-    {
-      orderId: z.string().describe("Draft order ID"),
-      productVariantId: z.string().describe("Product variant ID to add"),
-      quantity: z.number().describe("Quantity to add"),
+    get: {
+      summary: "Get a single order by ID with full details.",
+      shape: { id: z.string().describe("Order ID") },
+      handler: async (a) => jsonContent(await getOrder(a.id as string)),
     },
-    async (input) => jsonContent(await addItemToDraftOrder(input))
-  );
-
-  envAwareTool(server,
-    "vex_set_customer_for_draft_order",
-    "Set the customer for a draft order.",
-    {
-      orderId: z.string().describe("Draft order ID"),
-      customerId: z.string().describe("Customer ID to assign"),
+    create_draft: {
+      summary: "Create a new draft order.",
+      shape: {},
+      handler: async () => jsonContent(await createDraftOrder()),
     },
-    async (input) => jsonContent(await setCustomerForDraftOrder(input))
-  );
-
-  envAwareTool(server,
-    "vex_transition_order",
-    "Transition an order to a new state.",
-    {
-      id: z.string().describe("Order ID"),
-      state: z.string().describe("Target order state (e.g. 'ArrangingPayment', 'PaymentSettled', 'Shipped', 'Delivered')"),
+    add_item: {
+      summary: "Add a product variant to a draft order.",
+      shape: {
+        orderId: z.string().describe("Draft order ID"),
+        productVariantId: z.string().describe("Product variant ID to add"),
+        quantity: z.number().describe("Quantity to add"),
+      },
+      handler: async (a) => jsonContent(await addItemToDraftOrder(a as unknown as Parameters<typeof addItemToDraftOrder>[0])),
     },
-    async (input) => jsonContent(await transitionOrder(input))
-  );
-
-  envAwareTool(server,
-    "vex_cancel_order",
-    "Cancel an order.",
-    {
-      id: z.string().describe("Order ID"),
-      reason: z.string().optional().describe("Cancellation reason"),
+    set_customer: {
+      summary: "Set the customer for a draft order.",
+      shape: {
+        orderId: z.string().describe("Draft order ID"),
+        customerId: z.string().describe("Customer ID to assign"),
+      },
+      handler: async (a) => jsonContent(await setCustomerForDraftOrder(a as unknown as Parameters<typeof setCustomerForDraftOrder>[0])),
     },
-    async (input) => jsonContent(await cancelOrder(input))
-  );
+    transition: {
+      summary: "Transition an order to a new state.",
+      shape: {
+        id: z.string().describe("Order ID"),
+        state: z.string().describe("Target order state (e.g. 'ArrangingPayment', 'PaymentSettled', 'Shipped', 'Delivered')"),
+      },
+      handler: async (a) => jsonContent(await transitionOrder(a as unknown as Parameters<typeof transitionOrder>[0])),
+    },
+    cancel: {
+      summary: "Cancel an order.",
+      shape: {
+        id: z.string().describe("Order ID"),
+        reason: z.string().optional().describe("Cancellation reason"),
+      },
+      handler: async (a) => jsonContent(await cancelOrder(a as unknown as Parameters<typeof cancelOrder>[0])),
+    },
+  });
 }
