@@ -1,8 +1,13 @@
 name: release-please
 
-# Manually triggered: opens/updates a release PR that bumps the version and
-# writes CHANGELOG.md. Merging that PR creates the git tag and GitHub Release.
+# Runs on every push to main: release-please accumulates conventional commits
+# into a single release PR (bumping the version and updating CHANGELOG.md).
+# Merging that release PR is itself a push to main, so this runs once more to
+# create the git tag and GitHub Release. workflow_dispatch is kept for manual
+# re-runs (e.g. recovering a stuck release).
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
