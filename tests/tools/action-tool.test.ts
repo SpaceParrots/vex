@@ -54,6 +54,14 @@ describe("dispatchAction", () => {
     expect(calls).toEqual([]);
   });
 
+  it("treats inherited keys like 'toString' as unknown actions (no throw)", async () => {
+    const calls: string[] = [];
+    const res = await dispatchAction(makeActions(calls), { action: "toString" });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/Unknown action/);
+    expect(calls).toEqual([]);
+  });
+
   it("returns an isError result listing the missing required field", async () => {
     const calls: string[] = [];
     const res = await dispatchAction(makeActions(calls), { action: "greet" });

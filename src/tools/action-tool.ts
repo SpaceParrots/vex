@@ -83,7 +83,7 @@ export async function dispatchAction(
   args: Record<string, unknown>
 ): Promise<ToolResult> {
   const action = args.action;
-  if (typeof action !== "string" || !(action in actions)) {
+  if (typeof action !== "string" || !Object.hasOwn(actions, action)) {
     const valid = Object.keys(actions).join(", ");
     return errorResult(`Unknown action "${String(action)}". Valid actions: ${valid}.`);
   }
@@ -115,10 +115,13 @@ export function actionTool(
   description: string,
   actions: ActionMap
 ): void {
-  const actionNames = Object.keys(actions) as [string, ...string[]];
+  const actionNames = Object.keys(actions);
+  if (actionNames.length === 0) {
+    throw new Error(`actionTool("${name}") requires at least one action`);
+  }
   const shape: ZodRawShape = {
     action: z
-      .enum(actionNames)
+      .enum(actionNames as [string, ...string[]])
       .describe("The operation to perform. See the tool description for valid values."),
     ...mergeShapes(actions),
   };
