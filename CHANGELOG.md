@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0](https://github.com/SpaceParrots/vex/compare/v0.2.0...v1.0.0) (2026-06-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* **mcp:** MCP tool names changed (e.g. vex_get_customers -> vex_customers with action=list). CLI command names are unchanged.
+
+### Features
+
+* **mcp:** consolidate tools into action-dispatch tools and add lean mode ([#29](https://github.com/SpaceParrots/vex/issues/29)) ([ae59e75](https://github.com/SpaceParrots/vex/commit/ae59e7512a4ae63a15caa4c2c73259e0d332a502))
+
+
+### Bug Fixes
+
+* **deps:** bump vitest to 3.2.6 and tighten Node engine requirement ([#30](https://github.com/SpaceParrots/vex/issues/30)) ([f87247c](https://github.com/SpaceParrots/vex/commit/f87247cdb3c1128b38f910b006e5f3191160fb16))
+
 ## [0.2.0](https://github.com/SpaceParrots/vex/compare/v0.1.1...v0.2.0) (2026-06-24)
 
 
