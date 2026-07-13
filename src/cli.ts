@@ -8,6 +8,7 @@
 import { createRequire } from "node:module";
 import { Command } from "commander";
 import { createEnvCommand } from "./commands/env.js";
+import { createStatusCommand } from "./commands/status.js";
 import { createQueryCommand } from "./commands/query.js";
 import { createMutateCommand } from "./commands/mutate.js";
 import { createCustomerCommand } from "./commands/customer.js";
@@ -63,6 +64,7 @@ Reusable building blocks:
   });
 
   program.addCommand(createEnvCommand());
+  program.addCommand(createStatusCommand());
   program.addCommand(createQueryCommand());
   program.addCommand(createMutateCommand());
   program.addCommand(createCustomerCommand());

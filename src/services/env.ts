@@ -61,12 +61,17 @@ function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && "code" in err;
 }
 
-function tildeify(p: string): string {
+export function tildeify(p: string): string {
   const home = homedir();
   if (home && p.startsWith(home)) {
     return "~" + p.slice(home.length);
   }
   return p;
+}
+
+/** Masks an API key for display: first {@link API_KEY_MASK_LENGTH} chars + a fixed suffix. */
+export function maskApiKey(apiKey: string): string {
+  return apiKey.slice(0, API_KEY_MASK_LENGTH) + API_KEY_MASK_SUFFIX;
 }
 
 /** Input for adding a new Vendure environment. */
@@ -242,7 +247,7 @@ export interface EnvStatusResult {
 }
 
 /** Posts a trivial GraphQL query to confirm the endpoint is reachable and accepting the API key. */
-async function checkEndpoint(env: Environment): Promise<EnvCheck> {
+export async function checkEndpoint(env: Environment): Promise<EnvCheck> {
   const client = createClient(env);
   try {
     await client.request<{ __typename: string }>("{ __typename }");
@@ -342,7 +347,7 @@ export async function showEnvironment(name?: string): Promise<EnvShowResult> {
     name: targetName,
     active: config.activeEnvironment === targetName,
     url: env.url,
-    apiKeyMasked: env.apiKey.slice(0, API_KEY_MASK_LENGTH) + API_KEY_MASK_SUFFIX,
+    apiKeyMasked: maskApiKey(env.apiKey),
     schemaSource: env.schemaSource,
   };
 }
