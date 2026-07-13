@@ -26,6 +26,12 @@ const BUILTIN = new Set(["String", "Int", "Float", "Boolean", "ID"]);
 /** Canonical SDL string for any GraphQL type (e.g. `[Customer!]!`). No cast needed. */
 const gqlTypeStr = (t: GraphQLType): string => String(t);
 
+/**
+ * Returns the names of all types directly referenced by `t`'s fields (field
+ * types, argument types, and implemented interfaces for object/interface
+ * types; member types for unions). Used to seed the next depth level of
+ * {@link describeType}'s traversal.
+ */
 function referencedTypeNames(t: GraphQLNamedType): string[] {
   const names = new Set<string>();
   if (t instanceof GraphQLObjectType || t instanceof GraphQLInterfaceType) {
@@ -44,6 +50,16 @@ function referencedTypeNames(t: GraphQLNamedType): string[] {
   return [...names];
 }
 
+/**
+ * Prints the SDL for a named type, optionally including the SDL of types it
+ * directly references (one extra level when `depth` is 2). Each type is
+ * printed at most once even if reachable via multiple paths.
+ *
+ * @param name - The type name to look up in `schema`.
+ * @param depth - How many levels of referenced types to include; `1` prints
+ *   only `name` itself, `2` also prints its immediate references.
+ * @throws {Error} If `name` does not exist in `schema`.
+ */
 export function describeType(schema: GraphQLSchema, name: string, depth: 1 | 2 = 1): string {
   const root = schema.getType(name);
   if (!root) throw new Error(`Type "${name}" not found in schema.`);
@@ -65,6 +81,7 @@ export function describeType(schema: GraphQLSchema, name: string, depth: 1 | 2 =
   return out.join("\n\n");
 }
 
+/** A single typed `customFields` entry on a Vendure object type. */
 export interface CustomFieldInfo {
   readonly name: string;
   readonly type: string;
@@ -73,6 +90,11 @@ export interface CustomFieldInfo {
   readonly description: string | null;
 }
 
+/**
+ * Lists the typed `customFields` entries for a Vendure object type, if any.
+ * Returns `customFields: null` with an explanatory `message` when `typeName`
+ * is not an object type or has no `customFields` type in the schema.
+ */
 export function listCustomFields(
   schema: GraphQLSchema,
   typeName: string
@@ -102,6 +124,7 @@ export function listCustomFields(
   return { customFields: fields };
 }
 
+/** A summary of a single root query/mutation field: its name, kind, return type, and args. */
 export interface OperationSummary {
   readonly name: string;
   readonly kind: "query" | "mutation";
@@ -109,6 +132,10 @@ export interface OperationSummary {
   readonly args: readonly { name: string; type: string }[];
 }
 
+/**
+ * Lists root query and/or mutation fields, optionally filtered by kind and
+ * by a case-insensitive substring match on the field name.
+ */
 export function listOperations(
   schema: GraphQLSchema,
   opts?: { kind?: "query" | "mutation"; search?: string }
@@ -135,6 +162,13 @@ export function listOperations(
   return out;
 }
 
+/**
+ * Prints the signature of a single query or mutation field plus the SDL of
+ * every type it references (return type and argument types), so a caller
+ * can see everything needed to call the operation in one slice.
+ *
+ * @throws {Error} If `name` is not a query or mutation field on `schema`.
+ */
 export function describeOperation(schema: GraphQLSchema, name: string): string {
   const q = schema.getQueryType()?.getFields()[name];
   const m = schema.getMutationType()?.getFields()[name];

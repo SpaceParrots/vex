@@ -7,16 +7,19 @@
 
 import type { Selection } from "./types.js";
 
+/** A single operation-level variable declaration (name + GraphQL SDL type). */
 export interface OperationArg {
   readonly name: string;
   readonly type: string; // e.g. "ID!" or "CustomerListOptions"
 }
 
+/** A named fragment's full SDL text, ready to append to a rendered document. */
 export interface FragmentDefinition {
   readonly name: string;
   readonly sdl: string; // full "fragment X on T { ... }"
 }
 
+/** Input to {@link renderDocument}: the operation, its variables, and the selection to render. */
 export interface RenderInput {
   readonly kind: "query" | "mutation";
   readonly name: string; // operation name in the document
@@ -27,11 +30,18 @@ export interface RenderInput {
   readonly fragments?: readonly FragmentDefinition[];
 }
 
+/** A rendered GraphQL document string paired with the variables to send alongside it. */
 export interface RenderOutput {
   readonly query: string;
   readonly variables: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * Renders a JS value as a GraphQL literal (used for nested-field args, which
+ * are inlined rather than passed as variables — see {@link renderArgs}).
+ * Recurses through arrays and plain objects; strings are JSON-encoded with
+ * U+2028/U+2029 escaped since GraphQL forbids them unescaped in StringValue.
+ */
 function renderInlineValue(v: unknown): string {
   if (v === null) return "null";
   if (typeof v === "string") {
@@ -50,6 +60,10 @@ function renderInlineValue(v: unknown): string {
   return JSON.stringify(v);
 }
 
+/**
+ * Renders a field's argument object as a parenthesized GraphQL arg list
+ * (e.g. `(id: "42", take: 10)`), or `""` when there are no args.
+ */
 // Operation-level args are emitted as variable references (`$name`) by `renderDocument`.
 // Nested-field args inside a Selection are inlined as literals here because they originate
 // from already-realized values supplied by the wizard, not from the operation's variables.
@@ -59,6 +73,12 @@ function renderArgs(args: Readonly<Record<string, unknown>>): string {
   return `(${entries.map(([k, v]) => `${k}: ${renderInlineValue(v)}`).join(", ")})`;
 }
 
+/**
+ * Recursively renders the body of a {@link Selection} node at the given
+ * indent level. `scalar` and `fragmentRef` nodes render no body of their
+ * own — the field name (or `...Name` spread) is emitted by the parent
+ * `object`/`union` case that iterates over them.
+ */
 function renderSelection(sel: Selection, indent: string): string {
   switch (sel.kind) {
     case "scalar":
@@ -91,6 +111,11 @@ function renderSelection(sel: Selection, indent: string): string {
   }
 }
 
+/**
+ * Recursively collects the names of every fragment referenced anywhere in
+ * `sel` into `into`. Used by {@link renderDocument} to know which fragment
+ * definitions must be appended to the rendered document.
+ */
 function collectReferencedFragments(sel: Selection, into: Set<string>): void {
   switch (sel.kind) {
     case "fragmentRef":

@@ -143,6 +143,14 @@ function errorCode(err: Error): string | undefined {
   return (err as NodeJS.ErrnoException).code ?? (err.cause as NodeJS.ErrnoException | undefined)?.code;
 }
 
+/**
+ * Determines whether `err` represents a transport-level failure (DNS, TCP,
+ * TLS, fetch dispatch) rather than an unrelated Node error such as EACCES.
+ * Matches the error's (or its `cause`'s) `.code` against {@link NETWORK_ERROR_CODES}
+ * plus undici's `UND_ERR*` family, falling back to matching fetch's generic
+ * "fetch failed" message, so unrelated errors are not misreported as an
+ * unreachable endpoint.
+ */
 function isNetworkFailure(err: unknown): err is Error {
   if (!(err instanceof Error)) return false;
   const code = errorCode(err);
@@ -150,6 +158,7 @@ function isNetworkFailure(err: unknown): err is Error {
   return /fetch failed/i.test(err.message);
 }
 
+/** Returns a short, human-readable detail for a network failure: the error code if present, otherwise the message. */
 function networkDetail(err: Error): string {
   return errorCode(err) ?? err.message;
 }

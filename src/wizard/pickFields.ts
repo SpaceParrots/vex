@@ -10,11 +10,18 @@ import type { GraphQLObjectType } from "graphql";
 import { reachableLeafPaths } from "../schema-model/walk.js";
 import type { Selection } from "../schema-model/types.js";
 
+/** Inputs to {@link pickFields}. */
 export interface PickFieldsInput {
+  /** The GraphQL object type to select fields from. */
   readonly type: GraphQLObjectType;
+  /** Maximum path depth offered by {@link reachableLeafPaths}. */
   readonly maxDepth: number;
 }
 
+/**
+ * Converts a flat list of dotted leaf paths (e.g. `"address.city"`) into a
+ * nested {@link Selection} tree, merging paths that share a common prefix.
+ */
 function pathsToSelection(paths: readonly string[]): Selection {
   const root: Record<string, Selection> = {};
   for (const p of paths) {
@@ -38,6 +45,13 @@ function pathsToSelection(paths: readonly string[]): Selection {
   return { kind: "object", fields: root };
 }
 
+/**
+ * Prompts the user to multi-select fields (up to `input.maxDepth`) from the
+ * flattened set of reachable leaf paths under `input.type`.
+ *
+ * @returns The chosen paths converted into a {@link Selection} tree.
+ * @throws If `input.type` has no selectable leaf paths at all.
+ */
 export async function pickFields(input: PickFieldsInput): Promise<Selection> {
   const all = reachableLeafPaths(input.type, { maxDepth: input.maxDepth });
   if (all.length === 0) {

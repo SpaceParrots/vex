@@ -9,6 +9,7 @@ import {
 } from "../services/fragments.js";
 import { printTable, printInfo, printSuccess, handleError } from "../output.js";
 
+/** Creates the `vex fragment` command group: `list`, `show`, and `delete` for saved GraphQL fragments. */
 export function createFragmentCommand(): Command {
   const cmd = new Command("fragment").description("Manage saved GraphQL fragments");
 

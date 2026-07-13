@@ -15,6 +15,13 @@ interface BuildOpts {
   overwrite?: boolean;
 }
 
+/**
+ * Creates the `vex build` command: an interactive wizard for constructing and
+ * executing a GraphQL query or mutation (pick operation, prompt for variables,
+ * pick fields), with options to skip the field picker via a saved fragment,
+ * preview the document without executing (`--dry-run`), or persist the built
+ * operation for replay via `vex run` (`--save`).
+ */
 export function createBuildCommand(): Command {
   const cmd = new Command("build")
     .description("Interactively build and execute a GraphQL operation")

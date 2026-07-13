@@ -8,26 +8,33 @@
 import { text, select, isCancel, cancel } from "@clack/prompts";
 import type { GraphQLSchema, GraphQLField } from "graphql";
 
+/** Inputs to {@link pickOperation}. */
 export interface PickOperationInput {
   readonly schema: GraphQLSchema;
+  /** Which root type to pick a field from. */
   readonly kind: "query" | "mutation";
+  /** If set, resolved directly without prompting (errors if not found). */
   readonly nameHint?: string;
 }
 
+/** The resolved operation: its field name and schema field definition. */
 export interface PickOperationResult {
   readonly name: string;
   readonly field: GraphQLField<unknown, unknown>;
 }
 
+/** Returns the schema's Query or Mutation root type for `kind`. */
 function rootFor(schema: GraphQLSchema, kind: "query" | "mutation") {
   return kind === "query" ? schema.getQueryType() : schema.getMutationType();
 }
 
+/** Reports the clack cancel prompt and exits the process (128 + SIGINT) — this wizard step's cancel path. */
 function bail(): never {
   cancel("Cancelled. No request sent.");
   process.exit(130);
 }
 
+/** Computes the classic edit-distance metric between two strings. */
 function levenshtein(a: string, b: string): number {
   const m = a.length;
   const n = b.length;
@@ -45,10 +52,20 @@ function levenshtein(a: string, b: string): number {
   return dp[m][n];
 }
 
+/** Returns the 5 candidates closest to `name` by {@link levenshtein} distance, for "did you mean" errors. */
 function suggest(name: string, candidates: readonly string[]): string[] {
   return [...candidates].sort((x, y) => levenshtein(name, x) - levenshtein(name, y)).slice(0, 5);
 }
 
+/**
+ * Resolves a query/mutation field. If `input.nameHint` is given, it is looked
+ * up directly (throwing with closest-name suggestions if not found).
+ * Otherwise prompts for a text filter followed by a `select` over the
+ * filtered operation names. Cancelling {@link bail}s (exits the process).
+ *
+ * @throws If the schema has no root type for `input.kind`, `nameHint` does
+ *   not match any operation, or the text filter matches none.
+ */
 export async function pickOperation(input: PickOperationInput): Promise<PickOperationResult> {
   const root = rootFor(input.schema, input.kind);
   if (!root) throw new Error(`Schema has no ${input.kind} root type.`);

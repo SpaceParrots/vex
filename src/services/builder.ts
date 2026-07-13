@@ -16,6 +16,7 @@ import {
   type OperationArg,
 } from "../schema-model/render.js";
 
+/** Everything needed to render and run a single GraphQL operation. */
 export interface BuildAndExecuteInput {
   readonly schema: GraphQLSchema;
   readonly kind: "query" | "mutation";
@@ -25,6 +26,11 @@ export interface BuildAndExecuteInput {
   readonly fragments?: readonly FragmentDefinition[];
 }
 
+/**
+ * Renders a GraphQL input type as SDL (e.g. `ID!`, `[String]`). Recurses
+ * through `NonNull`/`List` wrappers; falls back to `String(t)` for any
+ * other shape (already-string type names, unrecognized wrapper types).
+ */
 function gqlTypeString(t: unknown): string {
   if (t instanceof GraphQLNonNull) return `${gqlTypeString(t.ofType)}!`;
   if (t instanceof GraphQLList) return `[${gqlTypeString(t.ofType)}]`;
@@ -32,6 +38,11 @@ function gqlTypeString(t: unknown): string {
   return String(t);
 }
 
+/**
+ * Looks up a root field by name on the schema's Query or Mutation type.
+ *
+ * @throws {Error} If `schema` has no root type for `kind`, or no field named `name` on it.
+ */
 function lookupOperation(
   schema: GraphQLSchema,
   kind: "query" | "mutation",
@@ -44,6 +55,12 @@ function lookupOperation(
   return field;
 }
 
+/**
+ * Resolves the operation's declared argument types from the schema and
+ * renders the full GraphQL document via {@link renderDocument}. Shared by
+ * {@link buildAndExecute} and {@link buildDocument} so the dry-run path
+ * renders byte-for-byte the same document that would actually be sent.
+ */
 function buildCore(input: BuildAndExecuteInput): { query: string; variables: Readonly<Record<string, unknown>> } {
   const field = lookupOperation(input.schema, input.kind, input.operationName);
   const operationArgs: OperationArg[] = field.args.map((a) => ({

@@ -36,11 +36,17 @@ import { pickPreset } from "./pickPreset.js";
 import { pickFields } from "./pickFields.js";
 import { maybeSaveFragment } from "./saveFragment.js";
 
+/** Inputs to {@link runWizard}. */
 export interface RunWizardInput {
+  /** Whether to build a query or mutation. */
   readonly kind: "query" | "mutation";
+  /** If set, skips the operation picker and resolves this operation directly. */
   readonly operationName?: string;
+  /** If set, skips the preset picker and reuses this saved fragment for the top-level selection. */
   readonly fragmentName?: string;
+  /** Max leaf-path depth offered when customizing a selection; capped at {@link MAX_SELECTOR_DEPTH}. */
   readonly maxDepth?: number;
+  /** When true, build the document/variables but skip execution. */
   readonly dryRun?: boolean;
   /** When true, print the rendered GraphQL document and variables before executing. */
   readonly verbose?: boolean;
@@ -50,11 +56,19 @@ export interface RunWizardInput {
   readonly overwriteSaved?: boolean;
 }
 
+/** Reports the clack cancel prompt and exits the process (128 + SIGINT) — the wizard's cancel path. */
 function bail(): never {
   cancel("Cancelled. No request sent.");
   process.exit(130);
 }
 
+/**
+ * Guards the wizard's entry point against non-interactive (script/CI)
+ * invocation, where clack prompts cannot be answered.
+ *
+ * @throws If stdout is not a TTY, with a hint to use the non-interactive
+ *   `--fragment` + variable-flags path instead.
+ */
 function ensureTty(): void {
   if (!process.stdout.isTTY) {
     throw new Error(
@@ -63,6 +77,11 @@ function ensureTty(): void {
   }
 }
 
+/**
+ * Builds a full "all scalars down to `depth`" {@link Selection} tree for
+ * `typeForWalk`, by flattening {@link reachableLeafPaths} and re-nesting the
+ * dotted paths. Used for the `allScalars`/`allScalarsPlusOne` presets.
+ */
 function selectionFromPaths(typeForWalk: GraphQLObjectType, depth: number): Selection {
   const paths = reachableLeafPaths(typeForWalk, { maxDepth: depth }).map((p) => p.path);
   const root: Record<string, Selection> = {};
@@ -84,6 +103,10 @@ function selectionFromPaths(typeForWalk: GraphQLObjectType, depth: number): Sele
   return { kind: "object", fields: root };
 }
 
+/**
+ * Resolves the current environment and its parsed schema, fetching and
+ * caching it via {@link refetchSchema} on first use if no cache exists yet.
+ */
 async function ensureSchema(): Promise<{ envName: string; schema: GraphQLSchema }> {
   const { name, env } = await getCurrentEnv();
   let sdl: string;
@@ -96,12 +119,29 @@ async function ensureSchema(): Promise<{ envName: string; schema: GraphQLSchema 
   return { envName: name, schema: parseSchemaFromSdl(name, sdl) };
 }
 
+/**
+ * Returns the item object type of `returnType` if it is a Vendure
+ * `PaginatedList`-shaped type ({@link isPaginatedList}), or `null` otherwise
+ * (either not paginated, or its item type isn't a selectable object).
+ */
 function paginatedReturn(returnType: GraphQLNamedType): GraphQLObjectType | null {
   if (!isPaginatedList(returnType)) return null;
   const item = paginatedItemType(returnType);
   return item instanceof GraphQLObjectType ? item : null;
 }
 
+/**
+ * Resolves the selection set for a single object type, either by reusing a
+ * fragment (explicit `fragmentNameOverride`, or one chosen via
+ * {@link pickPreset}), an all-scalars preset, the {@link pickFields} flat
+ * customize flow (offering to save the result as a fragment via
+ * {@link maybeSaveFragment}), or a pasted raw selection set parsed as a
+ * synthetic fragment. Cancelling the paste prompt {@link bail}s (exits the
+ * process).
+ *
+ * @returns The resolved {@link Selection} plus any fragment definitions that
+ *   must be included in the rendered document.
+ */
 async function selectionForType(
   schemaCtx: { envName: string; schema: GraphQLSchema },
   type: GraphQLObjectType,
@@ -178,6 +218,18 @@ async function selectionForType(
   };
 }
 
+/**
+ * Runs the full interactive query/mutation builder wizard: picks an
+ * operation ({@link pickOperation}), prompts for its arguments
+ * ({@link promptVariables}), resolves the selection set for its return type
+ * (handling union, paginated-list, and plain object shapes via
+ * {@link selectionForType}), optionally previews or saves the built
+ * document, and finally executes it (unless `input.dryRun`) and prints the
+ * response.
+ *
+ * @throws If not run in a TTY ({@link ensureTty}), or if the operation's
+ *   return type is not a selectable shape.
+ */
 export async function runWizard(input: RunWizardInput): Promise<void> {
   ensureTty();
   const ctx = await ensureSchema();

@@ -27,10 +27,12 @@ export interface LeafPath {
   readonly typeName: string;
 }
 
+/** Options for {@link reachableLeafPaths}. */
 export interface WalkOptions {
   readonly maxDepth: number;
 }
 
+/** Strips any number of `NonNull`/`List` wrappers, returning the underlying named type. */
 function unwrap(t: GraphQLOutputType): GraphQLOutputType {
   while (t instanceof GraphQLNonNull || t instanceof GraphQLList) {
     t = t.ofType as GraphQLOutputType;
@@ -38,6 +40,20 @@ function unwrap(t: GraphQLOutputType): GraphQLOutputType {
   return t;
 }
 
+/**
+ * Depth-first walk over `type`'s fields, appending every leaf (scalar/enum)
+ * field's dotted path to `out`. Recursion stops once `depth` exceeds
+ * `maxDepth`. `visited` holds the object-type names already on the current
+ * path; before descending into a child object type it is checked against
+ * `visited` and, if new, added to a copy (`next`) passed down the recursion
+ * — this prevents infinite recursion on cyclic schemas (e.g. `Product` →
+ * `variants` → `product`) without needing a global depth-independent guard.
+ * Interface/union-typed fields are skipped entirely (see module docs).
+ *
+ * @param prefix - Dotted path accumulated so far (empty at the root call).
+ * @param depth - Current depth, 1-based at the root call.
+ * @param out - Mutated in place to collect results.
+ */
 function walk(
   type: GraphQLObjectType,
   prefix: string,

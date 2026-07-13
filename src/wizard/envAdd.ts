@@ -14,6 +14,7 @@ import { buildSchema } from "graphql";
 import type { Environment } from "../config.js";
 import { introspect } from "../schema.js";
 
+/** Inputs to {@link runEnvAddWizard}; any field left unset is prompted for interactively. */
 export interface EnvAddWizardInput {
   readonly name: string;
   readonly url?: string;
@@ -22,6 +23,7 @@ export interface EnvAddWizardInput {
   readonly schemaValue?: string;
 }
 
+/** Fully-resolved wizard output, ready to pass to `addEnvironment`. */
 export interface EnvAddWizardResult {
   readonly name: string;
   readonly url: string;
@@ -30,11 +32,13 @@ export interface EnvAddWizardResult {
   readonly schemaValue?: string;
 }
 
+/** Reports the clack cancel prompt and exits the process (128 + SIGINT) — the wizard's cancel path. */
 function bail(): never {
   cancel("Cancelled. No environment added.");
   process.exit(130);
 }
 
+/** Clack `validate` callback for the API URL prompt: requires a non-empty `http(s)://` URL. */
 function validateUrl(value: string): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) return "URL is required.";
@@ -54,6 +58,10 @@ function validateApiKey(value: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Prompts for the Vendure Admin API URL. If `initial` is already valid, it is
+ * used without prompting. Cancelling {@link bail}s (exits the process).
+ */
 async function promptUrl(initial?: string): Promise<string> {
   if (initial && !validateUrl(initial)) return initial.trim();
   const v = await text({
@@ -66,6 +74,10 @@ async function promptUrl(initial?: string): Promise<string> {
   return String(v).trim();
 }
 
+/**
+ * Prompts (masked) for the Vendure API key. If `initial` is already valid, it
+ * is used without prompting. Cancelling {@link bail}s (exits the process).
+ */
 async function promptApiKey(initial?: string): Promise<string> {
   if (initial && !validateApiKey(initial)) return initial;
   const v = await password({
@@ -76,6 +88,12 @@ async function promptApiKey(initial?: string): Promise<string> {
   return String(v);
 }
 
+/**
+ * Prompts for how the schema should be obtained: introspecting the main
+ * endpoint, a custom introspection URL, a local SDL file, or skipped
+ * entirely. Returns `initialType`/`initialValue` unprompted if already set.
+ * Cancelling {@link bail}s (exits the process).
+ */
 async function promptSchemaSource(
   initialType?: "endpoint" | "file",
   initialValue?: string
@@ -116,6 +134,13 @@ async function promptSchemaSource(
   return { type: "file", value: String(v).trim() };
 }
 
+/**
+ * Validates credentials by running a live introspection query against `env`
+ * (or `endpoint` if given), showing a spinner while it runs.
+ *
+ * @returns The introspected SDL, on success.
+ * @throws If the request fails (invalid URL, bad credentials, network error).
+ */
 async function validateViaIntrospection(env: Environment, endpoint?: string): Promise<string> {
   const s = spinner();
   s.start("Validating credentials by fetching schema…");
@@ -129,6 +154,13 @@ async function validateViaIntrospection(env: Environment, endpoint?: string): Pr
   }
 }
 
+/**
+ * Validates a local SDL file by reading it and parsing it with `graphql`'s
+ * `buildSchema`, showing a spinner while it runs.
+ *
+ * @returns The file's raw SDL contents, on success.
+ * @throws If the file does not exist or fails to parse as valid SDL.
+ */
 async function validateViaFile(filePath: string): Promise<string> {
   const s = spinner();
   s.start(`Reading SDL file ${filePath}…`);
@@ -146,6 +178,10 @@ async function validateViaFile(filePath: string): Promise<string> {
   }
 }
 
+/**
+ * Prompts for a path to a local SDL file. Cancelling {@link bail}s (exits
+ * the process).
+ */
 async function promptFilePath(initial?: string): Promise<string> {
   const v = await text({
     message: "Path to local SDL file:",
@@ -157,6 +193,7 @@ async function promptFilePath(initial?: string): Promise<string> {
   return String(v).trim();
 }
 
+/** Extracts a human-readable message from a thrown value of unknown shape. */
 function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);

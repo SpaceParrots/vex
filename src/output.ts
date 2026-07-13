@@ -7,6 +7,7 @@ import { VexError } from "./errors.js";
  */
 const PRETTY_MCP = process.env.VEX_PRETTY_JSON === "1";
 
+/** Serializes `data` to JSON, honoring {@link PRETTY_MCP} for indentation. */
 function mcpStringify(data: unknown): string {
   return PRETTY_MCP ? JSON.stringify(data, null, 2) : JSON.stringify(data);
 }

@@ -22,15 +22,25 @@ import { isListOptionsInput } from "../schema-model/classify.js";
 import { coerceInputValue } from "../schema-model/coerce.js";
 import { DEFAULT_PAGE_SIZE, DEFAULT_SKIP } from "../constants.js";
 
+/** Reports the clack cancel prompt and exits the process (128 + SIGINT) — this wizard step's cancel path. */
 function bail(): never {
   cancel("Cancelled. No request sent.");
   process.exit(130);
 }
 
+/** True if `t` is wrapped in `GraphQLNonNull` (i.e. the argument must be supplied). */
 function isRequired(t: GraphQLInputType): boolean {
   return t instanceof GraphQLNonNull;
 }
 
+/**
+ * Prompts for a scalar argument value. `Boolean` uses a confirm prompt; other
+ * scalars use a text prompt, with `Int`/`Float` parsed as numbers. Optional
+ * arguments may be left empty to skip. Cancelling {@link bail}s (exits the
+ * process).
+ *
+ * @throws If a numeric scalar's input does not parse as a number.
+ */
 async function promptScalar(name: string, typeName: string, required: boolean): Promise<unknown> {
   if (typeName === "Boolean") {
     const v = await confirm({ message: `${name} (Boolean${required ? "" : ", optional"}):` });
@@ -51,6 +61,11 @@ async function promptScalar(name: string, typeName: string, required: boolean): 
   return raw;
 }
 
+/**
+ * Prompts for an enum argument via a `select` over its declared values, with
+ * a "(skip)" option appended when `required` is false. Cancelling
+ * {@link bail}s (exits the process).
+ */
 async function promptEnum(
   name: string,
   t: GraphQLEnumType,
@@ -64,6 +79,11 @@ async function promptEnum(
   return String(v);
 }
 
+/**
+ * Prompts for an arbitrary input-object/list argument as raw JSON text,
+ * re-prompting on parse errors until valid JSON is entered (or the argument
+ * is skipped, if optional). Cancelling {@link bail}s (exits the process).
+ */
 async function promptJsonInput(
   name: string,
   typeName: string,
@@ -87,6 +107,14 @@ async function promptJsonInput(
 
 /* --------------------------- ListOptions flow --------------------------- */
 
+/**
+ * Runs the structured prompt flow for a Vendure `ListOptions`-shaped input:
+ * `take`/`skip` (defaulted from {@link DEFAULT_PAGE_SIZE}/{@link DEFAULT_SKIP}),
+ * an optional multi-field `sort` with per-field ASC/DESC direction, and an
+ * optional loop of `filter` field/operator/value conditions (delegating
+ * operator values to {@link promptOperatorValue}). Cancelling {@link bail}s
+ * (exits the process).
+ */
 async function promptListOptions(
   optionsType: GraphQLInputObjectType
 ): Promise<Record<string, unknown>> {
@@ -224,6 +252,14 @@ async function promptOperatorValue(
 
 /* --------------------------- entry point --------------------------- */
 
+/**
+ * Prompts for a value for each operation argument in `args`, dispatching by
+ * type: the structured {@link promptListOptions} flow for `*ListOptions`
+ * inputs, {@link promptScalar} for scalars, {@link promptEnum} for enums, and
+ * {@link promptJsonInput} for everything else (input objects, lists).
+ * Optional arguments left empty are omitted from the result rather than set
+ * to `undefined`.
+ */
 export async function promptVariables(
   args: readonly GraphQLArgument[],
   _schema: GraphQLSchema

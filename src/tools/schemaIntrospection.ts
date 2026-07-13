@@ -15,6 +15,7 @@ import {
   describeOperation,
 } from "../services/schema-introspect.js";
 
+/** Resolves the current environment and loads its cached schema, parsed for introspection queries. */
 async function loadParsedSchema() {
   const { name, env } = await getCurrentEnv();
   const sdl = await loadSchema(env, name);

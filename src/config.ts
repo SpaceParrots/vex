@@ -46,10 +46,12 @@ const SCHEMAS_DIR = join(CONFIG_DIR, "schemas");
 const FRAGMENTS_DIR = join(CONFIG_DIR, "fragments");
 const OPERATIONS_DIR = join(CONFIG_DIR, "operations");
 
+/** Returns a fresh, empty configuration (no active environment, no environments). */
 function emptyConfig(): VexConfig {
   return { activeEnvironment: "", environments: {} };
 }
 
+/** Ensures the config and schemas directories exist, creating them recursively if needed. */
 async function ensureDirs(): Promise<void> {
   await mkdir(CONFIG_DIR, { recursive: true });
   await mkdir(SCHEMAS_DIR, { recursive: true });

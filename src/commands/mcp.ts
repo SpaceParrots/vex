@@ -39,6 +39,11 @@ function bail<T>(value: T | symbol): T {
   return value;
 }
 
+/**
+ * Asserts that `value` is a valid `--tools` mode ("full" or "lean").
+ *
+ * @throws {VexError} If `value` is anything else.
+ */
 function assertToolsMode(value: string): asserts value is "full" | "lean" {
   if (value !== "full" && value !== "lean") {
     throw new VexError(`Invalid --tools value "${value}".`, { hint: "Use --tools lean or --tools full." });

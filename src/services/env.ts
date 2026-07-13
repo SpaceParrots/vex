@@ -29,6 +29,7 @@ import { API_KEY_MASK_LENGTH, API_KEY_MASK_SUFFIX } from "../constants.js";
 import { getCurrentEnv, type EnvSource } from "../context.js";
 import { NoEnvironmentError, EnvNotFoundError, VexError } from "../errors.js";
 
+/** The shape of a `graphql-request` `ClientError`'s `.response`. */
 interface GraphQLRequestError {
   readonly response: {
     readonly status: number;
@@ -36,6 +37,7 @@ interface GraphQLRequestError {
   };
 }
 
+/** Type guard: does `value` look like a `graphql-request` error with a `.response.status`? */
 function hasGraphQLResponse(value: unknown): value is GraphQLRequestError {
   if (!value || typeof value !== "object") return false;
   const response = (value as { response?: unknown }).response;
@@ -58,10 +60,12 @@ function findGraphQLRequestError(err: unknown): GraphQLRequestError | null {
   return null;
 }
 
+/** Type guard: does `err` carry a Node.js `code` (e.g. `ECONNREFUSED`), as thrown by fetch/DNS/socket failures? */
 function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && "code" in err;
 }
 
+/** Rewrites an absolute path under the user's home directory to start with `~`, for display. */
 export function tildeify(p: string): string {
   const home = homedir();
   if (home && p.startsWith(home)) {

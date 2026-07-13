@@ -14,6 +14,7 @@ import {
   deleteFragment,
 } from "../services/fragments.js";
 
+/** Resolves the current environment and parses its cached schema for fragment operations. */
 async function loadCtx() {
   const { name, env } = await getCurrentEnv();
   const sdl = await loadSchema(env, name);

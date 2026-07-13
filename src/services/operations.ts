@@ -21,6 +21,7 @@ export function setOperationsRootForTests(root: string | null): void {
   rootOverride = root;
 }
 
+/** Resolves the on-disk directory for an environment's saved operations. */
 function envDir(envName: string): string {
   if (rootOverride) return join(rootOverride, envName);
   return getOperationsDir(envName);
@@ -97,6 +98,7 @@ export interface OperationMeta {
   readonly path: string;
 }
 
+/** Input for {@link saveOperation}. */
 export interface SaveOperationInput {
   readonly envName: string;
   readonly name: string;
@@ -112,6 +114,11 @@ export interface SaveOperationInput {
   readonly overwrite?: boolean;
 }
 
+/**
+ * Pulls the single operation definition out of a parsed document.
+ *
+ * @throws If `doc` contains zero or more than one operation definition.
+ */
 function extractOperation(doc: DocumentNode): OperationDefinitionNode {
   const ops = doc.definitions.filter(
     (d): d is OperationDefinitionNode => d.kind === "OperationDefinition"
@@ -122,6 +129,7 @@ function extractOperation(doc: DocumentNode): OperationDefinitionNode {
   return ops[0];
 }
 
+/** Path of a saved operation's JSON record: `{envDir}/{name}.json`. */
 function operationPath(envName: string, name: string): string {
   return join(envDir(envName), `${name}.json`);
 }
@@ -189,6 +197,7 @@ export async function saveOperation(input: SaveOperationInput): Promise<Operatio
   };
 }
 
+/** Input for {@link loadOperation}. */
 export interface LoadOperationInput {
   readonly envName: string;
   readonly name: string;
@@ -212,6 +221,14 @@ export async function loadOperation(input: LoadOperationInput): Promise<SavedOpe
   return assertSavedOperationShape(parsed, input.name);
 }
 
+/**
+ * Validates that a JSON-parsed value has the shape of a {@link SavedOperation}
+ * before it's trusted as one — guards against hand-edited or corrupted files.
+ *
+ * @throws If a required field is missing/mis-typed, `kind` isn't
+ *   `"query"`/`"mutation"`, `variables` isn't a plain object, or `variables`
+ *   contains a reserved key.
+ */
 function assertSavedOperationShape(value: unknown, name: string): SavedOperation {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`Saved operation "${name}" is malformed (expected an object).`);
@@ -238,12 +255,19 @@ function assertSavedOperationShape(value: unknown, name: string): SavedOperation
   return v as unknown as SavedOperation;
 }
 
+/** Input for {@link listOperations}. */
 export interface ListOperationsInput {
   readonly envName: string;
   readonly kind?: "query" | "mutation";
   readonly rootField?: string;
 }
 
+/**
+ * Reads and parses a saved-operation JSON file into its {@link OperationMeta}
+ * summary. Unlike {@link loadOperation}, a parse failure here yields `null`
+ * (skipping the file) rather than throwing, so one corrupt record doesn't
+ * break listing.
+ */
 async function readMeta(filePath: string): Promise<OperationMeta | null> {
   const raw = await readFile(filePath, "utf-8");
   try {
@@ -279,6 +303,7 @@ export async function listOperations(input: ListOperationsInput): Promise<readon
   return out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+/** Input for {@link deleteOperation}. */
 export interface DeleteOperationInput {
   readonly envName: string;
   readonly name: string;

@@ -34,6 +34,10 @@ export function buildVexServerEntry(opts: McpInstallOptions): VexServerEntry {
   return { ...base, env: { VEX_ENV: opts.envName, VEX_TOOLS: opts.tools } };
 }
 
+/**
+ * Parses `existingText` as a JSON object, throwing a {@link ConfigError} with
+ * an actionable hint if it is not valid JSON or not an object at the root.
+ */
 function parseRoot(existingText: string): Record<string, unknown> {
   let root: unknown;
   try {

@@ -46,6 +46,7 @@ export interface ActionDef {
 /** Map of action name → definition. */
 export type ActionMap = Record<string, ActionDef>;
 
+/** Builds an `isError` MCP tool result wrapping a single text message. */
 function errorResult(text: string): ToolResult {
   return { content: [{ type: "text" as const, text }], isError: true };
 }
