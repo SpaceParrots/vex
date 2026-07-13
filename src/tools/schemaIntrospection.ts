@@ -5,6 +5,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getCurrentEnv } from "../context.js";
 import { loadSchema } from "../schema.js";
 import { parseSchemaFromSdl } from "../schema-model/parse.js";
+import { parsePermissions } from "../schema-model/permissions.js";
 import { jsonContent } from "../output.js";
 import { actionTool } from "./action-tool.js";
 import {
@@ -69,6 +70,15 @@ export function registerSchemaIntrospectionTools(server: McpServer): void {
       handler: async (a) => {
         const schema = await loadParsedSchema();
         return { content: [{ type: "text" as const, text: describeOperation(schema, a.name as string) }] };
+      },
+    },
+    list_permissions: {
+      summary: "List all Permission enum values (incl. custom plugin permissions) with descriptions.",
+      shape: {},
+      handler: async () => {
+        const { name, env } = await getCurrentEnv();
+        const sdl = await loadSchema(env, name);
+        return jsonContent(parsePermissions(sdl));
       },
     },
   });
