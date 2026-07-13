@@ -124,7 +124,7 @@ function isLeanMode(): boolean {
  * entity tools and saved-query stores are added only in full mode. Skipping
  * them in lean mode removes ~8 tool definitions from the per-session context.
  */
-function registerTools(server: McpServer, lean: boolean): void {
+export function registerTools(server: McpServer, lean: boolean): void {
   // Universal interface — always available.
   registerSetupTool(server);
   registerCurrentEnvTool(server);

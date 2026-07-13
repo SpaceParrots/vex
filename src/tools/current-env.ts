@@ -8,7 +8,7 @@ import { jsonContent } from "../output.js";
 export function registerCurrentEnvTool(server: McpServer): void {
   server.tool(
     "vex_current_env",
-    "Show which Vendure environment vex is using and why (resolution: env param > VEX_ENV > project link matching cwd > active). Returns {name, host, source, projectPath?} or a none-configured notice.",
+    "Show which Vendure environment vex is using and why (env param > VEX_ENV > project link > active). Returns {name, host, source, projectPath?} or a none-configured notice.",
     {},
     async () => {
       const info = await currentEnvInfo();

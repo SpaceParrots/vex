@@ -35,7 +35,7 @@ const SetupInputSchema = z.object({
 export function registerSetupTool(server: McpServer): void {
   server.tool(
     "vex_setup",
-    "Manage Vendure API environments. Add, remove, list, switch between, show, or set (update) environment configurations.",
+    "Manage Vendure API environments: add, remove, list, switch, show, or set (update).",
     SetupInputSchema.shape,
     async (input) => {
       switch (input.action) {

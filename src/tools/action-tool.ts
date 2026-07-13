@@ -80,7 +80,7 @@ function mergeShapes(actions: ActionMap): ZodRawShape {
 /** Builds the tool description: the domain summary plus a one-line catalog of actions. */
 function buildDescription(base: string, actions: ActionMap): string {
   const lines = Object.entries(actions).map(([name, def]) => `- ${name}: ${def.summary}`);
-  return `${base}\n\nSet \`action\` to one of:\n${lines.join("\n")}`;
+  return `${base}\n\nActions:\n${lines.join("\n")}`;
 }
 
 /**
@@ -137,7 +137,7 @@ export function actionTool(
   const shape: ZodRawShape = {
     action: z
       .enum(actionNames as [string, ...string[]])
-      .describe("The operation to perform. See the tool description for valid values."),
+      .describe("Operation to perform; see description for valid values."),
     ...mergeShapes(actions),
   };
 

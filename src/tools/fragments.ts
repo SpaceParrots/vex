@@ -22,7 +22,7 @@ async function loadCtx() {
 
 /** Registers the `vex_fragments` MCP tool covering saved-fragment operations. */
 export function registerFragmentTools(server: McpServer): void {
-  actionTool(server, "vex_fragments", "Manage reusable GraphQL fragments (named selection sets) for the active environment.", {
+  actionTool(server, "vex_fragments", "Manage reusable GraphQL fragments (named selection sets).", {
     list: {
       summary: "List saved fragments, optionally filtered by on-clause type.",
       shape: {

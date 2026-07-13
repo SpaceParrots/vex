@@ -12,7 +12,7 @@ export function registerMutateTool(server: McpServer): void {
   envAwareTool(
     server,
     "vex_mutate",
-    "Execute a GraphQL mutation against the Vendure Admin API. Supports Upload-scalar file uploads via `files`.",
+    "Execute a raw GraphQL mutation. Supports Upload-scalar file uploads via `files`.",
     {
       mutation: z.string().describe("GraphQL mutation string"),
       variables: z.record(z.unknown()).optional().describe("Variables for the GraphQL mutation"),

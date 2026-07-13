@@ -11,7 +11,7 @@ import { envAwareTool } from "./env-aware.js";
 export function registerQueryTool(server: McpServer): void {
   envAwareTool(server,
     "vex_query",
-    "Execute a GraphQL query against the active Vendure Admin API environment.",
+    "Execute a raw GraphQL query.",
     {
       query: z.string().describe("GraphQL query string"),
       variables: z.record(z.unknown()).optional().describe("Variables for the GraphQL query"),
