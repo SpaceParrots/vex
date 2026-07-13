@@ -15,6 +15,7 @@ import { basename, extname } from "node:path";
 import type { Environment } from "./config.js";
 import { API_KEY_HEADER } from "./constants.js";
 import { GraphQLRequestError, VexError, toVexError } from "./errors.js";
+import { enrichPermissionError } from "./permission-errors.js";
 
 /** Extension → MIME type map for upload file parts (fallback: octet-stream). */
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
@@ -119,7 +120,6 @@ export async function requestWithUploads<T = unknown>(
   files: Readonly<Record<string, string>>,
   envName?: string
 ): Promise<T> {
-  void envName; // consumed by permission enrichment in a later change
   for (const filePath of Object.values(files)) {
     try {
       await access(filePath, constants.R_OK);
@@ -149,8 +149,8 @@ export async function requestWithUploads<T = unknown>(
     throw new GraphQLRequestError(`HTTP ${res.status} — response was not JSON`, { status: res.status });
   }
   if (Array.isArray(body.errors) && body.errors.length > 0) {
-    // Reuse the normalizer by presenting the ClientError shape it understands.
-    throw toVexError({ response: { status: res.status, errors: body.errors } });
+    const vexErr = toVexError({ response: { status: res.status, errors: body.errors } });
+    throw envName ? await enrichPermissionError(vexErr, envName, document) : vexErr;
   }
   return body.data as T;
 }

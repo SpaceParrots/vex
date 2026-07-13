@@ -3,6 +3,7 @@ import type { Environment } from "./config.js";
 import { getCurrentEnv } from "./context.js";
 import { API_KEY_HEADER } from "./constants.js";
 import { toVexError } from "./errors.js";
+import { enrichPermissionError } from "./permission-errors.js";
 
 /**
  * Creates a GraphQL client configured for the given Vendure environment.
@@ -16,7 +17,6 @@ import { toVexError } from "./errors.js";
  * @returns A configured {@link GraphQLClient} instance.
  */
 export function createClient(env: Environment, envName?: string): GraphQLClient {
-  void envName; // consumed by permission enrichment in a later change
   const client = new GraphQLClient(env.url, {
     headers: {
       [API_KEY_HEADER]: env.apiKey,
@@ -27,7 +27,14 @@ export function createClient(env: Environment, envName?: string): GraphQLClient 
     try {
       return await originalRequest(...args);
     } catch (err) {
-      throw toVexError(err);
+      const vexErr = toVexError(err);
+      if (envName) {
+        const first = args[0] as unknown;
+        const document =
+          typeof first === "string" ? first : ((first as { document?: unknown })?.document?.toString() ?? "");
+        throw await enrichPermissionError(vexErr, envName, document);
+      }
+      throw vexErr;
     }
   }) as typeof client.request;
   return client;
