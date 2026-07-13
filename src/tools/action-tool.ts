@@ -20,6 +20,7 @@
 
 import { z, type ZodRawShape, type ZodTypeAny } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { toVexError } from "../errors.js";
 import { envAwareTool } from "./env-aware.js";
 
 /**
@@ -47,6 +48,16 @@ export type ActionMap = Record<string, ActionDef>;
 
 function errorResult(text: string): ToolResult {
   return { content: [{ type: "text" as const, text }], isError: true };
+}
+
+/**
+ * Converts any thrown value into a uniform MCP error result: the normalized
+ * message, plus a `Hint:` line when the error carries one. Shared by all tool
+ * handlers so failures render identically across the tool surface.
+ */
+export function toolErrorResult(err: unknown): ToolResult {
+  const vexErr = toVexError(err);
+  return errorResult(vexErr.hint ? `${vexErr.message}\nHint: ${vexErr.hint}` : vexErr.message);
 }
 
 /**
@@ -98,7 +109,11 @@ export async function dispatchAction(
     return errorResult(`Invalid input for action "${action}": ${issues}`);
   }
 
-  return actions[action].handler(parsed.data as Record<string, unknown>);
+  try {
+    return await actions[action].handler(parsed.data as Record<string, unknown>);
+  } catch (err) {
+    return toolErrorResult(err);
+  }
 }
 
 /**
