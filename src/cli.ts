@@ -19,6 +19,7 @@ import { createSchemaCommand } from "./commands/schema.js";
 import { createZoneCommand } from "./commands/zone.js";
 import { createTaxCommand } from "./commands/tax.js";
 import { createChannelCommand } from "./commands/channel.js";
+import { createAssetCommand } from "./commands/asset.js";
 import { createFragmentCommand } from "./commands/fragment.js";
 import { createBuildCommand } from "./commands/build.js";
 import { createOperationCommand } from "./commands/operation.js";
@@ -76,6 +77,7 @@ Reusable building blocks:
   program.addCommand(createZoneCommand());
   program.addCommand(createTaxCommand());
   program.addCommand(createChannelCommand());
+  program.addCommand(createAssetCommand());
   program.addCommand(createFragmentCommand());
   program.addCommand(createBuildCommand());
   program.addCommand(createOperationCommand());
