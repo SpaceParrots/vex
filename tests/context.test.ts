@@ -70,12 +70,19 @@ describe("getClient honors the ambient override", () => {
     delete process.env.VEX_ENV;
   });
 
-  it("targets the override env's URL", async () => {
-    const client = await withEnv("staging", () => getClient());
-    // graphql-request exposes the endpoint as `url` on the instance.
-    expect((client as unknown as { url: string }).url).toBe(
-      "https://staging.example.com/admin-api"
+  it("sends the request to the override env's URL", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ data: { __typename: "Query" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
     );
+
+    const client = await withEnv("staging", () => getClient());
+    await client.request("{ __typename }");
+
+    const [calledUrl] = fetchSpy.mock.calls[0];
+    expect(String(calledUrl)).toBe("https://staging.example.com/admin-api");
   });
 });
 
