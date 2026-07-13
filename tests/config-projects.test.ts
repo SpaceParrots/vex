@@ -1,12 +1,21 @@
-import { describe, it, expect, beforeEach, afterAll } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { tmpdir } from "node:os";
-import { homedir } from "node:os";
+import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
+import { rmSync } from "node:fs";
+import { resolve } from "node:path";
 
-// Test setup: use a real temp directory in the system temp, not user home
-// This avoids the need to mock homedir before config.ts imports
-const testConfigHome = mkdtempSync(join(tmpdir(), "vex-config-test-"));
+// Created inside vi.hoisted so it exists before the hoisted module imports run
+// (config.ts calls homedir() at module load time). vi.importActual reaches the
+// real node:os while the module itself is mocked below.
+const tempHome = await vi.hoisted(async () => {
+  const { mkdtempSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const os = await vi.importActual<typeof import("node:os")>("node:os");
+  return mkdtempSync(join(os.tmpdir(), "vex-config-test-"));
+});
+
+vi.mock("node:os", async (orig) => {
+  const actual = await orig<typeof import("node:os")>();
+  return { ...actual, homedir: () => tempHome };
+});
 
 import {
   addEnv,
@@ -24,8 +33,7 @@ const DEV = { url: "https://dev.example.com/admin-api", apiKey: "k" };
 beforeEach(async () => {
   await saveConfig({ activeEnvironment: "", environments: {} });
 });
-
-afterAll(() => rmSync(testConfigHome, { recursive: true, force: true }));
+afterAll(() => rmSync(tempHome, { recursive: true, force: true }));
 
 describe("normalizeProjectPath", () => {
   it("resolves to an absolute path and strips trailing separators", () => {
