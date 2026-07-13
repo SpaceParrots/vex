@@ -19,6 +19,7 @@ import { registerOrderTools } from "./tools/orders.js";
 import { registerZoneTools } from "./tools/zones.js";
 import { registerTaxTools } from "./tools/tax.js";
 import { registerChannelTools } from "./tools/channels.js";
+import { registerAssetTools } from "./tools/assets.js";
 import { registerSchemaIntrospectionTools } from "./tools/schemaIntrospection.js";
 import { registerFragmentTools } from "./tools/fragments.js";
 import { registerOperationTools } from "./tools/operations.js";
@@ -141,6 +142,7 @@ function registerTools(server: McpServer, lean: boolean): void {
   registerZoneTools(server);
   registerTaxTools(server);
   registerChannelTools(server);
+  registerAssetTools(server);
   registerFragmentTools(server);
   registerOperationTools(server);
 }
