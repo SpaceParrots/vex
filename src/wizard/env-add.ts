@@ -9,10 +9,11 @@
 
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { intro, outro, text, password, select, confirm, isCancel, cancel, log, spinner } from "@clack/prompts";
+import { intro, outro, text, password, select, confirm, isCancel, log, spinner } from "@clack/prompts";
 import { buildSchema } from "graphql";
 import type { Environment } from "../config.js";
 import { introspect } from "../schema.js";
+import { cancelAndExit } from "../prompt.js";
 
 /** Inputs to {@link runEnvAddWizard}; any field left unset is prompted for interactively. */
 export interface EnvAddWizardInput {
@@ -34,8 +35,7 @@ export interface EnvAddWizardResult {
 
 /** Reports the clack cancel prompt and exits the process (128 + SIGINT) — the wizard's cancel path. */
 function bail(): never {
-  cancel("Cancelled. No environment added.");
-  process.exit(130);
+  cancelAndExit("Cancelled. No environment added.");
 }
 
 /** Clack `validate` callback for the API URL prompt: requires a non-empty `http(s)://` URL. */

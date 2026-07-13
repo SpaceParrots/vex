@@ -6,7 +6,7 @@
  * For other args, prompt by scalar/enum/JSON type.
  */
 
-import { text, select, confirm, isCancel, cancel, multiselect, log } from "@clack/prompts";
+import { text, select, confirm, isCancel, multiselect, log } from "@clack/prompts";
 import {
   GraphQLNonNull,
   GraphQLScalarType,
@@ -21,11 +21,11 @@ import {
 import { isListOptionsInput } from "../schema-model/classify.js";
 import { coerceInputValue } from "../schema-model/coerce.js";
 import { DEFAULT_PAGE_SIZE, DEFAULT_SKIP } from "../constants.js";
+import { cancelAndExit } from "../prompt.js";
 
 /** Reports the clack cancel prompt and exits the process (128 + SIGINT) — this wizard step's cancel path. */
 function bail(): never {
-  cancel("Cancelled. No request sent.");
-  process.exit(130);
+  cancelAndExit("Cancelled. No request sent.");
 }
 
 /** True if `t` is wrapped in `GraphQLNonNull` (i.e. the argument must be supplied). */

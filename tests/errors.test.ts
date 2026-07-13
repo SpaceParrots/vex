@@ -8,6 +8,7 @@ import {
   GraphQLRequestError,
   PermissionError,
   toVexError,
+  isErrnoException,
 } from "../src/errors.js";
 
 /** graphql-request ClientError-shaped fixture. */
@@ -104,5 +105,23 @@ describe("toVexError", () => {
     const err = toVexError({ response: { status: 502 } });
     expect(err).toBeInstanceOf(GraphQLRequestError);
     expect(err.message).toBe("HTTP 502");
+  });
+});
+
+describe("isErrnoException", () => {
+  it("returns true for an Error with a .code property", () => {
+    const err = Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
+    expect(isErrnoException(err)).toBe(true);
+  });
+
+  it("returns false for a plain Error without .code", () => {
+    expect(isErrnoException(new Error("plain"))).toBe(false);
+  });
+
+  it("returns false for non-Error values", () => {
+    expect(isErrnoException("oops")).toBe(false);
+    expect(isErrnoException(null)).toBe(false);
+    expect(isErrnoException(undefined)).toBe(false);
+    expect(isErrnoException({ code: "EACCES" })).toBe(false);
   });
 });

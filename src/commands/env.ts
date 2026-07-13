@@ -3,7 +3,7 @@
 import { Command } from "commander";
 import { writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
-import { select, isCancel, cancel } from "@clack/prompts";
+import { select } from "@clack/prompts";
 import {
   addEnvironment,
   removeEnvironment,
@@ -20,6 +20,7 @@ import { getSchemaPath } from "../config.js";
 import { runEnvAddWizard } from "../wizard/env-add.js";
 import { printJson, printSuccess, printInfo, printTable, handleError } from "../output.js";
 import { VexError } from "../errors.js";
+import { unwrapCancel } from "../prompt.js";
 
 /** Creates the `vex env` command group with add, list, switch, remove, set, and show subcommands. */
 export function createEnvCommand(): Command {
@@ -238,11 +239,7 @@ Examples:
             options: names.map((n) => ({ value: n, label: n === active ? `${n} (active)` : n })),
             initialValue: names.includes(active) ? active : names[0],
           });
-          if (isCancel(picked)) {
-            cancel("Cancelled.");
-            process.exit(1);
-          }
-          resolvedName = picked;
+          resolvedName = unwrapCancel(picked, "Cancelled.");
         }
         const result = await linkProjectPath({ envName: resolvedName, path });
         printSuccess(`Linked ${result.path} → "${result.envName}". vex now auto-selects it inside that directory.`);

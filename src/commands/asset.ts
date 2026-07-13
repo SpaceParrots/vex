@@ -1,7 +1,7 @@
 /** @module commands/asset — CLI subcommands for Vendure assets (upload, list, get, update, delete). */
 
 import { Command, InvalidArgumentError } from "commander";
-import { text, isCancel, cancel } from "@clack/prompts";
+import { text } from "@clack/prompts";
 import {
   uploadAssets,
   listAssets,
@@ -9,8 +9,17 @@ import {
   updateAsset,
   deleteAsset,
 } from "../services/assets.js";
-import { printJson, printSuccess, handleError } from "../output.js";
+import { printJson, printSuccess, printError, handleError } from "../output.js";
 import { VexError } from "../errors.js";
+import { unwrapCancel } from "../prompt.js";
+import { isRecord } from "../guards.js";
+
+/** Narrows one `createAssets` result entry to its `MimeTypeError` branch. */
+function isMimeTypeError(
+  entry: unknown
+): entry is { readonly message: string; readonly fileName?: string; readonly mimeType?: string } {
+  return isRecord(entry) && entry.__typename === "MimeTypeError";
+}
 
 /** Parses a `--tags a,b,c` value into a trimmed string array. */
 function parseTags(value: string): string[] {
@@ -52,18 +61,29 @@ Examples:
           if (process.stdin.isTTY !== true) {
             throw new VexError("No files given.", { hint: "Usage: vex asset upload <files...>" });
           }
-          const answer = await text({
-            message: "Path of the file to upload",
-            validate: (v) => (v.trim().length === 0 ? "Enter a file path." : undefined),
-          });
-          if (isCancel(answer)) {
-            cancel("Cancelled.");
-            process.exit(1);
-          }
+          const answer = unwrapCancel(
+            await text({
+              message: "Path of the file to upload",
+              validate: (v) => (v.trim().length === 0 ? "Enter a file path." : undefined),
+            }),
+            "Cancelled."
+          );
           filePaths = [answer];
         }
         const result = await uploadAssets({ filePaths, tags: opts.tags });
         printJson(result);
+        // createAssets returns a union array (Asset | MimeTypeError) — some files may
+        // have uploaded successfully even if others were rejected, so we still print
+        // the full result above, but a run where every file failed must not exit 0.
+        if (Array.isArray(result)) {
+          const failures = result.filter(isMimeTypeError);
+          if (failures.length > 0) {
+            for (const f of failures) {
+              printError(`Rejected ${f.fileName ?? "(unknown file)"}: ${f.message}`);
+            }
+            process.exitCode = 1;
+          }
+        }
       } catch (err) {
         handleError(err);
       }
@@ -113,8 +133,10 @@ Examples:
     .description("Delete an asset by ID")
     .action(async (id: string) => {
       try {
+        // deleteAsset() throws a VexError when the server refuses the delete
+        // (result !== "DELETED"), so reaching printSuccess here means it truly succeeded.
         printJson(await deleteAsset(id));
-        printSuccess(`Delete requested for asset ${id}.`);
+        printSuccess(`Deleted asset ${id}.`);
       } catch (err) {
         handleError(err);
       }

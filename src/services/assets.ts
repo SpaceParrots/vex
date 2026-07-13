@@ -10,6 +10,8 @@ import { getClient } from "../client.js";
 import { getCurrentEnv } from "../context.js";
 import { requestWithUploads } from "../upload.js";
 import { DEFAULT_PAGE_SIZE, DEFAULT_SKIP } from "../constants.js";
+import { VexError } from "../errors.js";
+import { isRecord } from "../guards.js";
 
 /** Selection set shared by every asset query/mutation, so all return the same shape. */
 const ASSET_FIELDS = `id createdAt name type fileSize mimeType width height source preview tags { value }`;
@@ -120,7 +122,24 @@ export async function updateAsset(input: UpdateAssetInput): Promise<unknown> {
   });
 }
 
-/** Deletes an asset by ID. Returns Vendure's DeletionResponse (result + message). */
+/** Narrows a `deleteAsset` GraphQL response to its `DeletionResponse` shape (`{ result, message }`). */
+function isDeleteAssetResponse(
+  value: unknown
+): value is { deleteAsset: { result: string; message?: string } } {
+  if (!isRecord(value)) return false;
+  const inner = value.deleteAsset;
+  return isRecord(inner) && typeof inner.result === "string";
+}
+
+/**
+ * Deletes an asset by ID. Returns Vendure's DeletionResponse (result +
+ * message) on success.
+ *
+ * @throws {VexError} If the server refused the delete (`result !==
+ *   "DELETED"` — e.g. the asset is still referenced by a product/variant, or
+ *   the API key lacks the `DeleteAsset` permission). The server's own
+ *   `message` (when present) is used as the error message.
+ */
 export async function deleteAsset(id: string): Promise<unknown> {
   const client = await getClient();
   const mutation = `
@@ -128,5 +147,15 @@ export async function deleteAsset(id: string): Promise<unknown> {
       deleteAsset(input: $input) { result message }
     }
   `;
-  return client.request(mutation, { input: { assetId: id } });
+  const data = await client.request(mutation, { input: { assetId: id } });
+  if (!isDeleteAssetResponse(data)) return data;
+  if (data.deleteAsset.result !== "DELETED") {
+    throw new VexError(
+      data.deleteAsset.message || `Failed to delete asset "${id}" (result: ${data.deleteAsset.result}).`,
+      {
+        hint: "The asset may still be referenced by a product/variant, or the API key may lack the DeleteAsset permission.",
+      }
+    );
+  }
+  return data;
 }

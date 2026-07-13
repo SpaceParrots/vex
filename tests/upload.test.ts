@@ -96,4 +96,45 @@ describe("requestWithUploads", () => {
     ).rejects.toBeInstanceOf(VexError);
     expect(spy).not.toHaveBeenCalled();
   });
+
+  it("throws with the HTTP status when a non-2xx response has no GraphQL errors array", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ message: "Payload Too Large" }), {
+        status: 413,
+        headers: { "content-type": "application/json" },
+      })
+    );
+    let caught: unknown;
+    try {
+      await requestWithUploads(ENV, "mutation { x }", {}, { "input.0.file": filePath });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(GraphQLRequestError);
+    expect((caught as GraphQLRequestError).status).toBe(413);
+    expect((caught as GraphQLRequestError).message).toMatch(/413/);
+  });
+
+  it("still enriches/throws a typed error for a non-2xx response WITH GraphQL errors", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({ errors: [{ message: "denied", extensions: { code: "FORBIDDEN" } }] }),
+        { status: 403, headers: { "content-type": "application/json" } }
+      )
+    );
+    await expect(
+      requestWithUploads(ENV, "mutation { x }", {}, { "input.0.file": filePath })
+    ).rejects.toBeInstanceOf(GraphQLRequestError);
+  });
+
+  it("returns data unchanged for a 200 response with valid data", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ data: { createAssets: [{ id: "42" }] } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
+    );
+    const data = await requestWithUploads(ENV, "mutation { x }", {}, { "input.0.file": filePath });
+    expect(data).toEqual({ createAssets: [{ id: "42" }] });
+  });
 });

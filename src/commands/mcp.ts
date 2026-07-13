@@ -21,6 +21,7 @@ import { listEnvironments } from "../services/env.js";
 import { linkProject, GETTING_STARTED_HINT } from "../config.js";
 import { VexError } from "../errors.js";
 import { printSuccess, printInfo, handleError } from "../output.js";
+import { unwrapCancel } from "../prompt.js";
 
 interface InstallFlags {
   readonly env?: string;
@@ -28,15 +29,6 @@ interface InstallFlags {
   readonly npx?: boolean;
   readonly link: boolean; // Commander --no-link default true
   readonly yes?: boolean;
-}
-
-/** Exits via clack's cancel flow when the user aborts a prompt. */
-function bail<T>(value: T | symbol): T {
-  if (p.isCancel(value)) {
-    p.cancel("Cancelled.");
-    process.exit(1);
-  }
-  return value;
 }
 
 /**
@@ -66,14 +58,15 @@ async function gatherOptions(flags: InstallFlags, targetDir: string): Promise<Mc
 
   if (interactive) {
     p.intro("vex mcp install");
-    envName ??= bail(
+    envName ??= unwrapCancel(
       await p.select({
         message: "Environment for this project",
         options: names.map((n) => ({ value: n, label: n === active ? `${n} (active)` : n })),
         initialValue: names.includes(active) ? active : names[0],
-      })
+      }),
+      "Cancelled."
     );
-    tools ??= bail(
+    tools ??= unwrapCancel(
       await p.select({
         message: "MCP tool surface",
         options: [
@@ -81,21 +74,24 @@ async function gatherOptions(flags: InstallFlags, targetDir: string): Promise<Mc
           { value: "full", label: "full — all typed entity tools" },
         ],
         initialValue: "lean",
-      })
+      }),
+      "Cancelled."
     );
     if (flags.npx === undefined) {
-      useNpx = bail(
+      useNpx = unwrapCancel(
         await p.confirm({
           message: "Invoke via npx instead of a globally installed `vex`?",
           initialValue: false,
-        })
+        }),
+        "Cancelled."
       );
     }
-    link = bail(
+    link = unwrapCancel(
       await p.confirm({
         message: `Also link ${targetDir} to "${envName}" so the CLI auto-selects it here?`,
         initialValue: flags.link,
-      })
+      }),
+      "Cancelled."
     );
   } else {
     envName ??= active;
@@ -130,7 +126,10 @@ async function runInstall(dir: string | undefined, flags: InstallFlags): Promise
         `current: ${JSON.stringify(existingEntry)}\nnew:     ${JSON.stringify(entry)}`,
         ".mcp.json already has a vex entry"
       );
-      const overwrite = bail(await p.confirm({ message: "Overwrite it?", initialValue: true }));
+      const overwrite = unwrapCancel(
+        await p.confirm({ message: "Overwrite it?", initialValue: true }),
+        "Cancelled."
+      );
       if (!overwrite) {
         p.cancel("Left .mcp.json unchanged.");
         process.exit(1);

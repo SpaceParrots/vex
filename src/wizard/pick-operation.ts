@@ -5,8 +5,9 @@
  * text-filter prompt followed by a clack `select` over the filtered ops.
  */
 
-import { text, select, isCancel, cancel } from "@clack/prompts";
+import { text, select, isCancel } from "@clack/prompts";
 import type { GraphQLSchema, GraphQLField } from "graphql";
+import { cancelAndExit } from "../prompt.js";
 
 /** Inputs to {@link pickOperation}. */
 export interface PickOperationInput {
@@ -30,8 +31,7 @@ function rootFor(schema: GraphQLSchema, kind: "query" | "mutation") {
 
 /** Reports the clack cancel prompt and exits the process (128 + SIGINT) — this wizard step's cancel path. */
 function bail(): never {
-  cancel("Cancelled. No request sent.");
-  process.exit(130);
+  cancelAndExit("Cancelled. No request sent.");
 }
 
 /** Computes the classic edit-distance metric between two strings. */

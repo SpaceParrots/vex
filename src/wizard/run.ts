@@ -5,7 +5,7 @@
  * maybe save → render & execute.
  */
 
-import { intro, outro, text, confirm, isCancel, cancel, log } from "@clack/prompts";
+import { intro, outro, text, confirm, isCancel, log } from "@clack/prompts";
 import {
   GraphQLObjectType,
   GraphQLUnionType,
@@ -35,6 +35,7 @@ import { promptVariables } from "./prompt-variables.js";
 import { pickPreset } from "./pick-preset.js";
 import { pickFields } from "./pick-fields.js";
 import { maybeSaveFragment } from "./save-fragment.js";
+import { cancelAndExit } from "../prompt.js";
 
 /** Inputs to {@link runWizard}. */
 export interface RunWizardInput {
@@ -58,8 +59,7 @@ export interface RunWizardInput {
 
 /** Reports the clack cancel prompt and exits the process (128 + SIGINT) — the wizard's cancel path. */
 function bail(): never {
-  cancel("Cancelled. No request sent.");
-  process.exit(130);
+  cancelAndExit("Cancelled. No request sent.");
 }
 
 /**

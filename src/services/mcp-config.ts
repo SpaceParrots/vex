@@ -8,6 +8,7 @@
  */
 
 import { ConfigError } from "../errors.js";
+import { isRecord } from "../guards.js";
 
 /** The `mcpServers.vex` entry written into `.mcp.json`. */
 export interface VexServerEntry {
@@ -47,12 +48,12 @@ function parseRoot(existingText: string): Record<string, unknown> {
       hint: "Fix or delete the file, then re-run `vex mcp install`.",
     });
   }
-  if (root === null || typeof root !== "object" || Array.isArray(root)) {
+  if (!isRecord(root)) {
     throw new ConfigError(".mcp.json must contain a JSON object at the root.", {
       hint: "Fix or delete the file, then re-run `vex mcp install`.",
     });
   }
-  return root as Record<string, unknown>;
+  return root;
 }
 
 /**
@@ -64,25 +65,27 @@ function parseRoot(existingText: string): Record<string, unknown> {
  */
 export function mergeMcpJson(existingText: string | undefined, entry: VexServerEntry): string {
   const root = existingText?.trim() ? parseRoot(existingText) : {};
-  const servers =
-    root.mcpServers && typeof root.mcpServers === "object" && !Array.isArray(root.mcpServers)
-      ? (root.mcpServers as Record<string, unknown>)
-      : {};
+  const servers = isRecord(root.mcpServers) ? root.mcpServers : {};
   const merged = { ...root, mcpServers: { ...servers, vex: entry } };
   return JSON.stringify(merged, null, 2) + "\n";
 }
 
 /**
- * Returns the current `mcpServers.vex` entry from an `.mcp.json` document,
- * or `undefined` when the file/entry is absent (invalid JSON also returns
- * `undefined` — the merge step reports that error properly).
+ * Returns the current `mcpServers.vex` entry from an `.mcp.json` document, or
+ * `undefined` when the file/entry is absent. Reuses {@link parseRoot} for
+ * validation (same null/object/array checks as {@link mergeMcpJson}) rather
+ * than parsing the file a second, unguarded way; invalid JSON or a
+ * non-object root is caught here and reported as `undefined` too — the merge
+ * step is what surfaces that as a proper {@link ConfigError} to the user.
  */
 export function getExistingVexEntry(existingText: string | undefined): unknown {
   if (!existingText?.trim()) return undefined;
+  let root: Record<string, unknown>;
   try {
-    const root = JSON.parse(existingText) as { mcpServers?: Record<string, unknown> };
-    return root?.mcpServers?.vex;
-  } catch {
-    return undefined;
+    root = parseRoot(existingText);
+  } catch (err) {
+    if (err instanceof ConfigError) return undefined;
+    throw err;
   }
+  return isRecord(root.mcpServers) ? root.mcpServers.vex : undefined;
 }

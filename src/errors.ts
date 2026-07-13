@@ -138,9 +138,20 @@ const NETWORK_ERROR_CODES: readonly string[] = [
   "ENETUNREACH",
 ];
 
+/**
+ * Type guard: does `err` carry a Node.js `code` (e.g. `ECONNREFUSED`,
+ * `EACCES`), as thrown by fetch/DNS/socket/filesystem failures? Narrows to
+ * `NodeJS.ErrnoException` without an unsafe cast.
+ */
+export function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
+  return err instanceof Error && "code" in err;
+}
+
 /** Returns the error's `.code` (or its `.cause`'s `.code`), if any. */
 function errorCode(err: Error): string | undefined {
-  return (err as NodeJS.ErrnoException).code ?? (err.cause as NodeJS.ErrnoException | undefined)?.code;
+  const code = isErrnoException(err) ? err.code : undefined;
+  if (code) return code;
+  return isErrnoException(err.cause) ? err.cause.code : undefined;
 }
 
 /**

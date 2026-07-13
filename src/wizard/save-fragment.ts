@@ -5,11 +5,12 @@
  * Selection as a fragment file.
  */
 
-import { confirm, text, isCancel, cancel } from "@clack/prompts";
+import { confirm, text, isCancel } from "@clack/prompts";
 import type { GraphQLSchema } from "graphql";
 import { renderDocument } from "../schema-model/render.js";
 import type { Selection } from "../schema-model/types.js";
 import { saveFragment } from "../services/fragments.js";
+import { cancelAndExit } from "../prompt.js";
 
 const NAME_RE = /^[A-Za-z][A-Za-z0-9]*$/;
 
@@ -47,8 +48,7 @@ function buildFragmentSdl(name: string, onType: string, selection: Selection): s
 
 /** Reports the clack cancel prompt and exits the process (128 + SIGINT) — this wizard step's cancel path. */
 function bail(): never {
-  cancel("Cancelled. No request sent.");
-  process.exit(130);
+  cancelAndExit("Cancelled. No request sent.");
 }
 
 /**

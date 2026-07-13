@@ -64,4 +64,10 @@ describe("getExistingVexEntry", () => {
     const text = JSON.stringify({ mcpServers: { vex: { command: "old" } } });
     expect(getExistingVexEntry(text)).toEqual({ command: "old" });
   });
+  it("returns undefined for invalid JSON (delegates validation to parseRoot)", () => {
+    expect(getExistingVexEntry("{ not json")).toBeUndefined();
+  });
+  it("returns undefined for an array at the root", () => {
+    expect(getExistingVexEntry(JSON.stringify([1, 2, 3]))).toBeUndefined();
+  });
 });

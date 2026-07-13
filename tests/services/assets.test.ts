@@ -8,10 +8,16 @@ vi.mock("../../src/context.js", async (orig) => {
   const actual = await orig<typeof import("../../src/context.js")>();
   return { ...actual, getCurrentEnv: vi.fn() };
 });
+vi.mock("../../src/client.js", async (orig) => {
+  const actual = await orig<typeof import("../../src/client.js")>();
+  return { ...actual, getClient: vi.fn() };
+});
 
 import { requestWithUploads } from "../../src/upload.js";
 import { getCurrentEnv } from "../../src/context.js";
-import { uploadAssets } from "../../src/services/assets.js";
+import { getClient } from "../../src/client.js";
+import { uploadAssets, deleteAsset } from "../../src/services/assets.js";
+import { VexError } from "../../src/errors.js";
 
 const CTX = {
   name: "dev",
@@ -39,5 +45,31 @@ describe("uploadAssets", () => {
     });
     expect(files).toEqual({ "input.0.file": "./a.png", "input.1.file": "./b.jpg" });
     expect(envName).toBe("dev");
+  });
+});
+
+describe("deleteAsset", () => {
+  beforeEach(() => {
+    vi.mocked(getClient).mockReset();
+  });
+
+  it("rejects with the server's message when result is NOT_DELETED", async () => {
+    vi.mocked(getClient).mockResolvedValue({
+      request: vi.fn().mockResolvedValue({
+        deleteAsset: { result: "NOT_DELETED", message: "Asset is still in use by 2 products" },
+      }),
+    } as never);
+    await expect(deleteAsset("42")).rejects.toBeInstanceOf(VexError);
+    await expect(deleteAsset("42")).rejects.toThrow(/still in use by 2 products/);
+  });
+
+  it("resolves normally when result is DELETED", async () => {
+    vi.mocked(getClient).mockResolvedValue({
+      request: vi.fn().mockResolvedValue({
+        deleteAsset: { result: "DELETED", message: "" },
+      }),
+    } as never);
+    const result = await deleteAsset("42");
+    expect(result).toEqual({ deleteAsset: { result: "DELETED", message: "" } });
   });
 });

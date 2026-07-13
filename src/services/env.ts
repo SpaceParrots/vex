@@ -27,7 +27,7 @@ import { refetchSchema } from "../schema.js";
 import { createClient } from "../client.js";
 import { API_KEY_MASK_LENGTH, API_KEY_MASK_SUFFIX } from "../constants.js";
 import { getCurrentEnv, type EnvSource } from "../context.js";
-import { NoEnvironmentError, EnvNotFoundError, VexError } from "../errors.js";
+import { NoEnvironmentError, EnvNotFoundError, VexError, isErrnoException } from "../errors.js";
 
 /** The shape of a `graphql-request` `ClientError`'s `.response`. */
 interface GraphQLRequestError {
@@ -58,11 +58,6 @@ function findGraphQLRequestError(err: unknown): GraphQLRequestError | null {
     cur = (cur as { cause?: unknown }).cause;
   }
   return null;
-}
-
-/** Type guard: does `err` carry a Node.js `code` (e.g. `ECONNREFUSED`), as thrown by fetch/DNS/socket failures? */
-function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
-  return err instanceof Error && "code" in err;
 }
 
 /** Rewrites an absolute path under the user's home directory to start with `~`, for display. */

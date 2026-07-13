@@ -16,6 +16,7 @@ import type { Environment } from "./config.js";
 import { API_KEY_HEADER } from "./constants.js";
 import { GraphQLRequestError, VexError, toVexError } from "./errors.js";
 import { enrichPermissionError } from "./permission-errors.js";
+import { isRecord } from "./guards.js";
 
 /** Extension → MIME type map for upload file parts (fallback: octet-stream). */
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
@@ -99,11 +100,25 @@ export async function buildUploadForm(
   return form;
 }
 
+/** Narrows a parsed response body to one carrying a non-empty GraphQL `errors` array. */
+function hasGraphQLErrors(
+  body: Record<string, unknown>
+): body is Record<string, unknown> & { errors: ReadonlyArray<Record<string, unknown>> } {
+  return Array.isArray(body.errors) && body.errors.length > 0;
+}
+
 /**
  * Executes a GraphQL mutation with `Upload`-scalar variables against a
  * Vendure environment. Validates each file up front, sends the multipart
  * request with the `vendure-api-key` header (FormData sets the boundary),
  * and normalizes failures into typed {@link VexError}s.
+ *
+ * Every response is checked for both a usable GraphQL `errors` array and its
+ * HTTP status: a non-2xx response WITH GraphQL errors is still enriched via
+ * {@link enrichPermissionError} (unchanged from before), but a non-2xx
+ * response with no usable `errors` array (e.g. a reverse proxy 413/502 with
+ * an unrelated JSON body) now throws instead of silently returning
+ * `undefined` as a "successful" result.
  *
  * @param env - Target environment (URL + API key).
  * @param document - The GraphQL mutation string.
@@ -111,7 +126,7 @@ export async function buildUploadForm(
  * @param files - Dotted variable path (e.g. `"input.0.file"`) → local file path.
  * @param envName - Optional env name for schema-aware error enrichment.
  * @throws {VexError} If a file is missing/unreadable.
- * @throws {GraphQLRequestError} If the server returns GraphQL errors.
+ * @throws {GraphQLRequestError} If the server returns GraphQL errors, or a non-2xx status with no usable errors array.
  */
 export async function requestWithUploads<T = unknown>(
   env: Environment,
@@ -142,15 +157,25 @@ export async function requestWithUploads<T = unknown>(
     throw toVexError(err);
   }
 
-  let body: { data?: T; errors?: ReadonlyArray<Record<string, unknown>> };
+  let parsed: unknown;
   try {
-    body = (await res.json()) as typeof body;
+    parsed = await res.json();
   } catch {
     throw new GraphQLRequestError(`HTTP ${res.status} — response was not JSON`, { status: res.status });
   }
-  if (Array.isArray(body.errors) && body.errors.length > 0) {
-    const vexErr = toVexError({ response: { status: res.status, errors: body.errors } });
+
+  if (!isRecord(parsed)) {
+    throw new GraphQLRequestError(`HTTP ${res.status} — unexpected response shape`, { status: res.status });
+  }
+
+  if (hasGraphQLErrors(parsed)) {
+    const vexErr = toVexError({ response: { status: res.status, errors: parsed.errors } });
     throw envName ? await enrichPermissionError(vexErr, envName, document) : vexErr;
   }
-  return body.data as T;
+
+  if (!res.ok) {
+    throw new GraphQLRequestError(`HTTP ${res.status} — upload failed`, { status: res.status });
+  }
+
+  return parsed.data as T;
 }
