@@ -9,7 +9,7 @@ export default defineConfig({
     testTimeout: 30000,
     coverage: {
       provider: "v8",
-      include: ["src/schema-model/**", "src/services/builder.ts", "src/services/fragments.ts", "src/services/mcp-config.ts", "src/errors.ts", "src/context.ts"],
+      include: ["src/schema-model/**", "src/services/builder.ts", "src/services/fragments.ts", "src/services/mcp-config.ts", "src/errors.ts", "src/context.ts", "src/upload.ts"],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
     },
   },
