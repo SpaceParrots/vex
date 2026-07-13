@@ -25,7 +25,7 @@ import {
 import { refetchSchema } from "../schema.js";
 import { createClient } from "../client.js";
 import { API_KEY_MASK_LENGTH, API_KEY_MASK_SUFFIX } from "../constants.js";
-import { getCurrentEnv } from "../context.js";
+import { getCurrentEnv, type EnvSource } from "../context.js";
 import { NoEnvironmentError } from "../errors.js";
 
 interface GraphQLRequestError {
@@ -352,18 +352,25 @@ export async function showEnvironment(name?: string): Promise<EnvShowResult> {
   };
 }
 
+/** Structured view of the environment currently in use. */
+export interface CurrentEnvInfo {
+  readonly name: string;
+  readonly host: string;
+  readonly source: EnvSource;
+  readonly projectPath?: string;
+}
+
 /**
- * Returns a single compact line describing the environment currently in use:
- * `name → host (via VEX_ENV | via active)`, or `none configured` when nothing
- * resolves. Never includes the API key.
+ * Resolves the environment currently in use and returns structured info
+ * (never the API key). Returns `null` when nothing is configured.
  */
-export async function currentEnvLine(): Promise<string> {
+export async function currentEnvInfo(): Promise<CurrentEnvInfo | null> {
   let resolved;
   try {
     resolved = await getCurrentEnv();
   } catch (err) {
-    if (err instanceof NoEnvironmentError) return "none configured";
-    return err instanceof Error ? err.message : "none configured";
+    if (err instanceof NoEnvironmentError) return null;
+    throw err;
   }
   let host: string;
   try {
@@ -371,11 +378,29 @@ export async function currentEnvLine(): Promise<string> {
   } catch {
     host = resolved.env.url;
   }
+  return {
+    name: resolved.name,
+    host,
+    source: resolved.source,
+    ...(resolved.projectPath !== undefined ? { projectPath: resolved.projectPath } : {}),
+  };
+}
+
+/**
+ * Returns a single compact line describing the environment currently in use:
+ * `name → host (via …)`, or `none configured` when nothing
+ * resolves. Never includes the API key.
+ */
+export async function currentEnvLine(): Promise<string> {
+  const info = await currentEnvInfo();
+  if (!info) return "none configured";
   const via =
-    resolved.source === "param"
+    info.source === "param"
       ? "via env param"
-      : resolved.source === "VEX_ENV"
+      : info.source === "VEX_ENV"
         ? "via VEX_ENV"
-        : "via active";
-  return `${resolved.name} → ${host} (${via})`;
+        : info.source === "project"
+          ? `via project link ${info.projectPath ?? ""}`.trim()
+          : "via active";
+  return `${info.name} → ${info.host} (${via})`;
 }

@@ -9,16 +9,18 @@ vi.mock("../../src/config.js", async (orig) => {
   const actual = await orig<typeof import("../../src/config.js")>();
   return {
     ...actual,
+    loadConfig: vi.fn(),
     linkProject: vi.fn(async () => ({})),
     unlinkProject: vi.fn(async () => ({})),
   };
 });
 
-import { noEnvironmentMessage, linkProject, unlinkProject } from "../../src/config.js";
+import { noEnvironmentMessage, linkProject, unlinkProject, loadConfig } from "../../src/config.js";
 import { getCurrentEnv, NoEnvironmentError } from "../../src/context.js";
 import { currentEnvLine } from "../../src/services/env.js";
 
 const mockedGetCurrentEnv = vi.mocked(getCurrentEnv);
+const mockedLoadConfig = vi.mocked(loadConfig);
 
 describe("currentEnvLine", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -48,11 +50,10 @@ describe("currentEnvLine", () => {
     expect(await currentEnvLine()).toBe("none configured");
   });
 
-  it("returns the error message when resolution throws a non-NoEnvironmentError", async () => {
-    mockedGetCurrentEnv.mockRejectedValue(
-      new Error('Environment "bad" not found (selected via param). Available: dev.')
-    );
-    expect(await currentEnvLine()).toBe(
+  it("propagates non-NoEnvironmentError errors", async () => {
+    const error = new Error('Environment "bad" not found (selected via param). Available: dev.');
+    mockedGetCurrentEnv.mockRejectedValue(error);
+    await expect(currentEnvLine()).rejects.toThrow(
       'Environment "bad" not found (selected via param). Available: dev.'
     );
   });
@@ -103,5 +104,32 @@ describe("project link service wrappers", () => {
     const result = await unlinkProjectPath();
     expect(result.path).toBe(process.cwd());
     expect(vi.mocked(unlinkProject)).toHaveBeenCalledWith(process.cwd());
+  });
+});
+
+describe("currentEnvInfo", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns name, host, source, and projectPath as structured data", async () => {
+    mockedGetCurrentEnv.mockResolvedValue({
+      name: "dev",
+      env: { url: "https://dev.example.com/admin-api", apiKey: "k" },
+      source: "project",
+      projectPath: process.cwd(),
+    });
+    const { currentEnvInfo } = await import("../../src/services/env.js");
+    const info = await currentEnvInfo();
+    expect(info).toEqual({
+      name: "dev",
+      host: "dev.example.com",
+      source: "project",
+      projectPath: process.cwd(),
+    });
+  });
+
+  it("returns null when nothing is configured", async () => {
+    mockedGetCurrentEnv.mockRejectedValue(new NoEnvironmentError("No environment configured."));
+    const { currentEnvInfo } = await import("../../src/services/env.js");
+    expect(await currentEnvInfo()).toBeNull();
   });
 });
