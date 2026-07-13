@@ -42,8 +42,8 @@ function hasGraphQLResponse(value: unknown): value is GraphQLRequestError {
 
 /**
  * Returns the underlying `graphql-request` `ClientError`-shaped object if the
- * thrown error exposes one. `createClient()` wraps the raw client error via
- * `compactGraphQLError`, preserving the original on `.cause`, so we walk that
+ * thrown error exposes one. `createClient()` normalizes raw client errors via
+ * `toVexError`, preserving the original on `.cause`, so we walk that
  * chain (with a small bound) before giving up.
  */
 function findGraphQLRequestError(err: unknown): GraphQLRequestError | null {

@@ -7,9 +7,10 @@
  */
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { existsSync } from "node:fs";
+import { EnvNotFoundError, NoEnvironmentError, VexError } from "./errors.js";
 
 /** Describes how to obtain the GraphQL schema for an environment. */
 export interface SchemaSource {
@@ -35,6 +36,8 @@ export interface VexConfig {
   activeEnvironment: string;
   /** Map of environment name to its configuration. */
   environments: Record<string, Environment>;
+  /** Optional map of absolute project (repo) path → environment name. */
+  projects?: Record<string, string>;
 }
 
 const CONFIG_DIR = join(homedir(), ".vendure-vex");
@@ -80,7 +83,9 @@ export async function getActiveEnv(): Promise<{
   const config = await loadConfig();
   const name = config.activeEnvironment;
   if (!name || !config.environments[name]) {
-    throw new Error(noEnvironmentMessage(config.environments));
+    throw new NoEnvironmentError(noEnvironmentMessage(config.environments), {
+      hint: Object.keys(config.environments).length === 0 ? GETTING_STARTED_HINT : undefined,
+    });
   }
   return { name, env: config.environments[name] };
 }
@@ -128,7 +133,7 @@ export function noEnvironmentMessage(
  */
 export function assertValidEnvName(name: string): void {
   if (!ENV_NAME_RE.test(name)) {
-    throw new Error(
+    throw new VexError(
       `Environment name "${name}" must match ${ENV_NAME_RE.source} (letters, digits, underscore, dash only).`
     );
   }
@@ -161,18 +166,23 @@ export async function addEnv(
 /**
  * Removes an environment by name and deletes its cached schema file.
  * Clears the active environment if the removed one was active.
+ * Also removes any project links pointing to the removed environment.
  *
  * @throws If the environment does not exist.
  */
 export async function removeEnv(name: string): Promise<VexConfig> {
   const config = await loadConfig();
   if (!config.environments[name]) {
-    throw new Error(envNotFoundMessage(name, config.environments));
+    throw new EnvNotFoundError(envNotFoundMessage(name, config.environments));
   }
   const { [name]: _, ...rest } = config.environments;
+  const projects = Object.fromEntries(
+    Object.entries(config.projects ?? {}).filter(([, envName]) => envName !== name)
+  );
   const updated: VexConfig = {
     ...config,
     environments: rest,
+    projects,
     activeEnvironment:
       config.activeEnvironment === name ? "" : config.activeEnvironment,
   };
@@ -201,7 +211,7 @@ export async function updateEnv(
   const config = await loadConfig();
   const existing = config.environments[name];
   if (!existing) {
-    throw new Error(envNotFoundMessage(name, config.environments));
+    throw new EnvNotFoundError(envNotFoundMessage(name, config.environments));
   }
   const updated: VexConfig = {
     ...config,
@@ -222,7 +232,7 @@ export async function updateEnv(
 export async function switchEnv(name: string): Promise<VexConfig> {
   const config = await loadConfig();
   if (!config.environments[name]) {
-    throw new Error(envNotFoundMessage(name, config.environments));
+    throw new EnvNotFoundError(envNotFoundMessage(name, config.environments));
   }
   const updated: VexConfig = { ...config, activeEnvironment: name };
   await saveConfig(updated);
@@ -263,4 +273,72 @@ export function getFragmentsDir(envName: string): string {
  */
 export function getOperationsDir(envName: string): string {
   return join(OPERATIONS_DIR, envName);
+}
+
+/** Returns the path of the config file (for display in `vex status`). */
+export function getConfigPath(): string {
+  return CONFIG_FILE;
+}
+
+/**
+ * Getting-started steps shown when no environment is configured at all.
+ * Attached as the `hint` of {@link NoEnvironmentError} by the resolver.
+ */
+export const GETTING_STARTED_HINT = [
+  "Get started:",
+  "  1. vex env add dev      configure your Vendure Admin API URL + API key",
+  "  2. vex mcp install      wire vex into this project's .mcp.json (optional)",
+  "  3. vex status           verify everything works",
+].join("\n");
+
+/**
+ * Normalizes a project path for comparison: absolute, trailing separators
+ * stripped, lowercased on Windows (case-insensitive filesystem). Stored keys
+ * keep their original casing for display; comparisons use this form.
+ */
+export function normalizeProjectPath(p: string): string {
+  let abs = resolve(p).replace(/[\\/]+$/, "");
+  if (process.platform === "win32") abs = abs.toLowerCase();
+  return abs;
+}
+
+/**
+ * Links a project (repo) path to an environment. Any existing link for the
+ * same path (compared via {@link normalizeProjectPath}) is replaced.
+ *
+ * @throws {EnvNotFoundError} If `envName` is not configured.
+ */
+export async function linkProject(path: string, envName: string): Promise<VexConfig> {
+  const config = await loadConfig();
+  if (!config.environments[envName]) {
+    throw new EnvNotFoundError(envNotFoundMessage(envName, config.environments));
+  }
+  const abs = resolve(path);
+  const norm = normalizeProjectPath(abs);
+  const remaining = Object.fromEntries(
+    Object.entries(config.projects ?? {}).filter(([p]) => normalizeProjectPath(p) !== norm)
+  );
+  const updated: VexConfig = { ...config, projects: { ...remaining, [abs]: envName } };
+  await saveConfig(updated);
+  return updated;
+}
+
+/**
+ * Removes the project link for a path.
+ *
+ * @throws {VexError} If the path is not linked.
+ */
+export async function unlinkProject(path: string): Promise<VexConfig> {
+  const config = await loadConfig();
+  const norm = normalizeProjectPath(path);
+  const entries = Object.entries(config.projects ?? {});
+  const remaining = entries.filter(([p]) => normalizeProjectPath(p) !== norm);
+  if (remaining.length === entries.length) {
+    throw new VexError(`No project link for "${resolve(path)}".`, {
+      hint: "See linked projects with `vex env list`.",
+    });
+  }
+  const updated: VexConfig = { ...config, projects: Object.fromEntries(remaining) };
+  await saveConfig(updated);
+  return updated;
 }
