@@ -5,10 +5,11 @@
  * reachable leaf path up to the configured max depth.
  */
 
-import { multiselect, isCancel, cancel } from "@clack/prompts";
+import { multiselect } from "@clack/prompts";
 import type { GraphQLObjectType } from "graphql";
 import { reachableLeafPaths } from "../schema-model/walk.js";
 import type { Selection } from "../schema-model/types.js";
+import { unwrapCancel } from "../prompt.js";
 
 /** Inputs to {@link pickFields}. */
 export interface PickFieldsInput {
@@ -57,14 +58,13 @@ export async function pickFields(input: PickFieldsInput): Promise<Selection> {
   if (all.length === 0) {
     throw new Error(`No selectable fields under "${input.type.name}".`);
   }
-  const picked = await multiselect({
-    message: `Pick fields (depth ≤ ${input.maxDepth}):`,
-    required: true,
-    options: all.map((p) => ({ value: p.path, label: `${p.path} (${p.typeName})` })),
-  });
-  if (isCancel(picked)) {
-    cancel("Cancelled. No request sent.");
-    process.exit(130);
-  }
+  const picked = unwrapCancel(
+    await multiselect({
+      message: `Pick fields (depth ≤ ${input.maxDepth}):`,
+      required: true,
+      options: all.map((p) => ({ value: p.path, label: `${p.path} (${p.typeName})` })),
+    }),
+    "Cancelled. No request sent."
+  );
   return pathsToSelection(picked);
 }

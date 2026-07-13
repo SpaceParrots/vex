@@ -5,8 +5,9 @@
  * Returns a tag the orchestrator uses to route to the next step.
  */
 
-import { select, isCancel, cancel } from "@clack/prompts";
+import { select } from "@clack/prompts";
 import type { FragmentMeta } from "../services/fragments.js";
+import { unwrapCancel } from "../prompt.js";
 
 /**
  * The user's chosen selection-set strategy for a type: reuse a saved
@@ -51,15 +52,14 @@ export async function pickPreset(input: PickPresetInput): Promise<PresetChoice> 
     { value: "paste", label: "Paste GraphQL selection set" }
   );
 
-  const picked = await select({
-    message: `Selection on ${input.typeName}:`,
-    options,
-    maxItems: 12,
-  });
-  if (isCancel(picked)) {
-    cancel("Cancelled. No request sent.");
-    process.exit(130);
-  }
+  const picked = unwrapCancel(
+    await select({
+      message: `Selection on ${input.typeName}:`,
+      options,
+      maxItems: 12,
+    }),
+    "Cancelled. No request sent."
+  );
   const v = String(picked);
   if (v.startsWith("frag:")) return { kind: "fragment", name: v.slice("frag:".length) };
   switch (v) {
