@@ -6,7 +6,7 @@ vi.mock("../src/config.js", async (orig) => {
 });
 
 import { loadConfig } from "../src/config.js";
-import { resolveEnv, withEnv } from "../src/env-context.js";
+import { resolveEnv, withEnv, findProjectLink } from "../src/context.js";
 import { getClient } from "../src/client.js";
 
 const mockedLoadConfig = vi.mocked(loadConfig);
@@ -76,5 +76,69 @@ describe("getClient honors the ambient override", () => {
     expect((client as unknown as { url: string }).url).toBe(
       "https://staging.example.com/admin-api"
     );
+  });
+});
+
+describe("project-link resolution", () => {
+  const PROJECT_CONFIG = {
+    activeEnvironment: "dev",
+    environments: {
+      dev: { url: "https://dev.example.com/admin-api", apiKey: "k-dev" },
+      shop: { url: "https://shop.example.com/admin-api", apiKey: "k-shop" },
+      inner: { url: "https://inner.example.com/admin-api", apiKey: "k-inner" },
+    },
+    projects: {
+      "/repos/shop": "shop",
+      "/repos/shop/packages/plugin": "inner",
+    },
+  };
+
+  beforeEach(() => {
+    mockedLoadConfig.mockResolvedValue(structuredClone(PROJECT_CONFIG));
+    delete process.env.VEX_ENV;
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete process.env.VEX_ENV;
+  });
+
+  it("resolves the linked env when cwd is inside a linked repo (source 'project')", async () => {
+    vi.spyOn(process, "cwd").mockReturnValue("/repos/shop/src/plugins");
+    const r = await resolveEnv();
+    expect(r.name).toBe("shop");
+    expect(r.source).toBe("project");
+    expect(r.projectPath).toBe("/repos/shop");
+  });
+
+  it("the deepest (longest) link wins", async () => {
+    vi.spyOn(process, "cwd").mockReturnValue("/repos/shop/packages/plugin/src");
+    const r = await resolveEnv();
+    expect(r.name).toBe("inner");
+  });
+
+  it("VEX_ENV beats the project link", async () => {
+    vi.spyOn(process, "cwd").mockReturnValue("/repos/shop");
+    process.env.VEX_ENV = "dev";
+    const r = await resolveEnv();
+    expect(r.source).toBe("VEX_ENV");
+  });
+
+  it("falls back to active when cwd is outside every linked repo", async () => {
+    vi.spyOn(process, "cwd").mockReturnValue("/elsewhere");
+    const r = await resolveEnv();
+    expect(r.name).toBe("dev");
+    expect(r.source).toBe("active");
+  });
+});
+
+describe("findProjectLink", () => {
+  it("returns undefined when there are no projects", () => {
+    expect(findProjectLink(undefined, "/anywhere")).toBeUndefined();
+  });
+  it("matches the exact directory", () => {
+    expect(findProjectLink({ "/repos/shop": "shop" }, "/repos/shop")).toEqual({
+      path: "/repos/shop",
+      envName: "shop",
+    });
   });
 });

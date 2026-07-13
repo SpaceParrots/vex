@@ -1,6 +1,6 @@
 import { GraphQLClient } from "graphql-request";
 import type { Environment } from "./config.js";
-import { getCurrentEnv } from "./env-context.js";
+import { getCurrentEnv } from "./context.js";
 import { API_KEY_HEADER } from "./constants.js";
 import { toVexError } from "./errors.js";
 

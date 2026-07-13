@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { noEnvironmentMessage } from "../../src/config.js";
 
-vi.mock("../../src/env-context.js", async (orig) => {
-  const actual = await orig<typeof import("../../src/env-context.js")>();
+vi.mock("../../src/context.js", async (orig) => {
+  const actual = await orig<typeof import("../../src/context.js")>();
   return { ...actual, getCurrentEnv: vi.fn() };
 });
 
-import { getCurrentEnv, NoEnvironmentError } from "../../src/env-context.js";
+import { getCurrentEnv, NoEnvironmentError } from "../../src/context.js";
 import { currentEnvLine } from "../../src/services/env.js";
 
 const mockedGetCurrentEnv = vi.mocked(getCurrentEnv);

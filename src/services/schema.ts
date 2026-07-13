@@ -7,7 +7,7 @@
 
 import { parse, type DefinitionNode } from "graphql";
 import { loadConfig, envNotFoundMessage } from "../config.js";
-import { getCurrentEnv } from "../env-context.js";
+import { getCurrentEnv } from "../context.js";
 import { refetchSchema } from "../schema.js";
 
 /** Result returned after fetching and analyzing a schema. */

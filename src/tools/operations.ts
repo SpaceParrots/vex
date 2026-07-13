@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getCurrentEnv } from "../env-context.js";
+import { getCurrentEnv } from "../context.js";
 import { getClient } from "../client.js";
 import { jsonContent } from "../output.js";
 import { actionTool } from "./action-tool.js";

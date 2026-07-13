@@ -24,7 +24,8 @@ import {
 import { refetchSchema } from "../schema.js";
 import { createClient } from "../client.js";
 import { API_KEY_MASK_LENGTH, API_KEY_MASK_SUFFIX } from "../constants.js";
-import { getCurrentEnv, NoEnvironmentError } from "../env-context.js";
+import { getCurrentEnv } from "../context.js";
+import { NoEnvironmentError } from "../errors.js";
 
 interface GraphQLRequestError {
   readonly response: {

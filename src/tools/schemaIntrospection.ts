@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getCurrentEnv } from "../env-context.js";
+import { getCurrentEnv } from "../context.js";
 import { loadSchema } from "../schema.js";
 import { parseSchemaFromSdl } from "../schema-model/parse.js";
 import { jsonContent } from "../output.js";

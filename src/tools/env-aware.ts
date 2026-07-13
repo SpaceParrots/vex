@@ -9,7 +9,7 @@
 
 import { z, type ZodRawShape } from "zod";
 import type { McpServer, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { withEnv } from "../env-context.js";
+import { withEnv } from "../context.js";
 
 /** Shared optional `env` parameter. Description kept terse to limit token cost. */
 export const envParam = {

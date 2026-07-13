@@ -21,7 +21,7 @@ import { createFragmentCommand } from "./commands/fragment.js";
 import { createBuildCommand } from "./commands/build.js";
 import { createOperationCommand } from "./commands/operation.js";
 import { createRunCommand } from "./commands/run.js";
-import { enterEnvContext } from "./env-context.js";
+import { enterEnvContext } from "./context.js";
 
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json") as { version: string };

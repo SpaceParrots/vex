@@ -14,7 +14,7 @@ import {
   type GraphQLSchema,
   type GraphQLNamedType,
 } from "graphql";
-import { getCurrentEnv } from "../env-context.js";
+import { getCurrentEnv } from "../context.js";
 import { loadSchema, refetchSchema } from "../schema.js";
 import { parseSchemaFromSdl } from "../schema-model/parse.js";
 import { reachableLeafPaths } from "../schema-model/walk.js";

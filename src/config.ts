@@ -72,7 +72,7 @@ export async function saveConfig(config: VexConfig): Promise<void> {
 
 /**
  * Returns the active environment's name and configuration.
- * Retained as the explicit "active environment only" accessor (ignores per-call overrides); most callers should use getCurrentEnv() from env-context instead.
+ * Retained as the explicit "active environment only" accessor (ignores per-call overrides); most callers should use getCurrentEnv() from context instead.
  *
  * @throws If no active environment is set.
  */

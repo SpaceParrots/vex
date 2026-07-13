@@ -1,7 +1,7 @@
 /** @module commands/run — CLI command for executing a saved GraphQL operation by name. */
 
 import { Command } from "commander";
-import { getCurrentEnv } from "../env-context.js";
+import { getCurrentEnv } from "../context.js";
 import { getClient } from "../client.js";
 import {
   loadOperation,

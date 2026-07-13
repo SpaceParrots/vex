@@ -1,7 +1,7 @@
 /** @module commands/operation — CLI subcommands for managing saved GraphQL operations. */
 
 import { Command } from "commander";
-import { getCurrentEnv } from "../env-context.js";
+import { getCurrentEnv } from "../context.js";
 import {
   listOperations,
   loadOperation,
