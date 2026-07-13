@@ -3,6 +3,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { currentEnvInfo } from "../services/env.js";
 import { jsonContent } from "../output.js";
+import { toolErrorResult } from "./action-tool.js";
 
 /** Registers the `vex_current_env` MCP tool. */
 export function registerCurrentEnvTool(server: McpServer): void {
@@ -11,11 +12,15 @@ export function registerCurrentEnvTool(server: McpServer): void {
     "Show which Vendure environment vex is using and why (env param > VEX_ENV > project link > active). Returns {name, host, source, projectPath?} or a none-configured notice.",
     {},
     async () => {
-      const info = await currentEnvInfo();
-      if (!info) {
-        return { content: [{ type: "text" as const, text: "none configured" }] };
+      try {
+        const info = await currentEnvInfo();
+        if (!info) {
+          return { content: [{ type: "text" as const, text: "none configured" }] };
+        }
+        return jsonContent(info);
+      } catch (err) {
+        return toolErrorResult(err);
       }
-      return jsonContent(info);
     }
   );
 }

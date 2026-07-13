@@ -19,7 +19,12 @@ function sourceLabel(source: EnvSource, projectPath?: string): string {
   }
 }
 
-/** Creates the `vex status` command showing env, endpoint, schema, and config health. */
+/**
+ * Creates the `vex status` command showing env, endpoint, schema, and config health.
+ *
+ * The process exit code (1 on failure) reflects endpoint reachability only; an
+ * uncached schema is not treated as a failure because `vex schema fetch` self-heals it.
+ */
 export function createStatusCommand(): Command {
   return new Command("status")
     .description("Show which environment is in use, endpoint reachability, and schema freshness")

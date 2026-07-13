@@ -29,9 +29,10 @@ export interface StatusReport {
   readonly configPath: string;
 }
 
-/** Formats a millisecond age as a compact human string (e.g. "2 days ago"). */
+/** Formats a millisecond age as a compact human string (e.g. "2 days ago"). Clamps negative ages (e.g. a future mtime) to 0. */
 function formatAge(ms: number): string {
-  const minutes = Math.floor(ms / 60_000);
+  const clamped = Math.max(0, ms);
+  const minutes = Math.floor(clamped / 60_000);
   if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
   const hours = Math.floor(minutes / 60);
   if (hours < 48) return `${hours} hour${hours === 1 ? "" : "s"} ago`;

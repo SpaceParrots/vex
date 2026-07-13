@@ -265,6 +265,8 @@ Schema:      OK   cached (412331 bytes, mtime 2026-05-11T...)
 
 ## MCP setup (Claude Code)
 
+> Tip: `vex mcp install` writes this file for you (see [Connect to Claude Code](#connect-to-claude-code)); the manual steps below are for other MCP clients or custom setups.
+
 Add to your project's `.mcp.json` or global `~/.claude.json`:
 
 ```json

@@ -88,7 +88,7 @@ Reusable building blocks:
   operations   full queries/mutations with default variables (vex operation ...)
 
 Shortcuts:
-  vex envs | products | customers | orders | assets | channels | zones
+  vex envs | products | customers | orders | assets | channels | zones | fragments | operations
                list the domain (same flags as the list subcommand)
   vex use <env>                              switch the active environment
   vex status                                 health panel for the current environment

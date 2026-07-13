@@ -87,6 +87,14 @@ describe("toVexError", () => {
     expect(err).toBeInstanceOf(NetworkError);
   });
 
+  it("does not treat a non-network errno code (e.g. EACCES) as a NetworkError", () => {
+    const eacces = Object.assign(new Error("permission denied, open '/etc/shadow'"), { code: "EACCES" });
+    const err = toVexError(eacces);
+    expect(err).not.toBeInstanceOf(NetworkError);
+    expect(err).toBeInstanceOf(VexError);
+    expect(err.message).toBe(eacces.message);
+  });
+
   it("wraps plain errors and non-errors as VexError", () => {
     expect(toVexError(new Error("plain"))).toBeInstanceOf(VexError);
     expect(toVexError("oops").message).toBe("oops");

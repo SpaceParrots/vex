@@ -58,7 +58,7 @@ Vex is a user-facing tool. Every CLI command and MCP tool should feel intuitive 
 
 ### Three-Layer Pattern
 
-Each Vendure entity (customers, products, orders, zones, tax, channels) follows the same structure:
+Each Vendure entity (customers, products, orders, zones, tax, channels, assets) follows the same structure:
 
 1. **Services** (`src/services/*.ts`) — Stateless functions that build and execute GraphQL operations. Every function calls `getClient()` → `client.request(query, variables)`. Magic values (pagination defaults, language codes) are imported from `src/constants.ts`.
 

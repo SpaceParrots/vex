@@ -8,6 +8,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
+import { resolve } from "node:path";
 import { buildSchema } from "graphql";
 import {
   addEnv as addEnvConfig,
@@ -26,7 +27,7 @@ import { refetchSchema } from "../schema.js";
 import { createClient } from "../client.js";
 import { API_KEY_MASK_LENGTH, API_KEY_MASK_SUFFIX } from "../constants.js";
 import { getCurrentEnv, type EnvSource } from "../context.js";
-import { NoEnvironmentError } from "../errors.js";
+import { NoEnvironmentError, EnvNotFoundError, VexError } from "../errors.js";
 
 interface GraphQLRequestError {
   readonly response: {
@@ -159,13 +160,15 @@ export async function updateEnvironment(input: UpdateEnvInput): Promise<UpdateEn
   }
 
   if (updated.length === 0) {
-    throw new Error("No fields to update. Provide at least one of: --url, --api-key, --schema-type.");
+    throw new VexError("No fields to update.", {
+      hint: "Provide at least one of: --url, --api-key, --schema-type.",
+    });
   }
 
   const config = await loadConfig();
   const targetName = input.name ?? config.activeEnvironment;
   if (!targetName) {
-    throw new Error(noEnvironmentMessage(config.environments));
+    throw new NoEnvironmentError(noEnvironmentMessage(config.environments));
   }
 
   await updateEnvConfig(targetName, fields);
@@ -210,14 +213,14 @@ export interface LinkProjectInput {
 export async function linkProjectPath(
   input: LinkProjectInput
 ): Promise<{ readonly envName: string; readonly path: string }> {
-  const path = input.path ?? process.cwd();
+  const path = resolve(input.path ?? process.cwd());
   await linkProject(path, input.envName);
   return { envName: input.envName, path };
 }
 
 /** Removes the project link for a directory (defaults to cwd). */
 export async function unlinkProjectPath(path?: string): Promise<{ readonly path: string }> {
-  const target = path ?? process.cwd();
+  const target = resolve(path ?? process.cwd());
   await unlinkProject(target);
   return { path: target };
 }
@@ -311,11 +314,11 @@ export async function statusEnvironment(name?: string): Promise<EnvStatusResult>
   const config = await loadConfig();
   const targetName = name ?? config.activeEnvironment;
   if (!targetName) {
-    throw new Error(noEnvironmentMessage(config.environments));
+    throw new NoEnvironmentError(noEnvironmentMessage(config.environments));
   }
   const env = config.environments[targetName];
   if (!env) {
-    throw new Error(envNotFoundMessage(targetName, config.environments));
+    throw new EnvNotFoundError(envNotFoundMessage(targetName, config.environments));
   }
 
   const [endpoint, schema] = await Promise.all([
@@ -337,11 +340,11 @@ export async function showEnvironment(name?: string): Promise<EnvShowResult> {
   const config = await loadConfig();
   const targetName = name ?? config.activeEnvironment;
   if (!targetName) {
-    throw new Error(noEnvironmentMessage(config.environments));
+    throw new NoEnvironmentError(noEnvironmentMessage(config.environments));
   }
   const env = config.environments[targetName];
   if (!env) {
-    throw new Error(envNotFoundMessage(targetName, config.environments));
+    throw new EnvNotFoundError(envNotFoundMessage(targetName, config.environments));
   }
   return {
     name: targetName,

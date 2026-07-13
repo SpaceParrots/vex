@@ -126,15 +126,32 @@ interface ClientErrorShape {
   };
 }
 
+/** Transport-level error codes that indicate a network failure (not e.g. a filesystem error). */
+const NETWORK_ERROR_CODES: readonly string[] = [
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "ETIMEDOUT",
+  "ECONNRESET",
+  "EAI_AGAIN",
+  "EPIPE",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+];
+
+/** Returns the error's `.code` (or its `.cause`'s `.code`), if any. */
+function errorCode(err: Error): string | undefined {
+  return (err as NodeJS.ErrnoException).code ?? (err.cause as NodeJS.ErrnoException | undefined)?.code;
+}
+
 function isNetworkFailure(err: unknown): err is Error {
   if (!(err instanceof Error)) return false;
-  const code = (err as NodeJS.ErrnoException).code ?? (err.cause as NodeJS.ErrnoException | undefined)?.code;
-  return typeof code === "string" || /fetch failed/i.test(err.message);
+  const code = errorCode(err);
+  if (code && (NETWORK_ERROR_CODES.includes(code) || code.startsWith("UND_ERR"))) return true;
+  return /fetch failed/i.test(err.message);
 }
 
 function networkDetail(err: Error): string {
-  const code = (err as NodeJS.ErrnoException).code ?? (err.cause as NodeJS.ErrnoException | undefined)?.code;
-  return code ?? err.message;
+  return errorCode(err) ?? err.message;
 }
 
 /**

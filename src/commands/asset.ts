@@ -23,7 +23,7 @@ function parseTags(value: string): string[] {
 /** Parses a `--focal x,y` value into a focal point object. */
 function parseFocalPoint(value: string): { x: number; y: number } {
   const [x, y] = value.split(",").map(Number);
-  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+  if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 1 || y < 0 || y > 1) {
     throw new InvalidArgumentError("Expected --focal x,y with numbers between 0 and 1 (e.g. 0.5,0.5).");
   }
   return { x, y };

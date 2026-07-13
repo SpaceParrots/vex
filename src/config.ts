@@ -239,18 +239,6 @@ export async function switchEnv(name: string): Promise<VexConfig> {
   return updated;
 }
 
-/** Returns all environments and the name of the currently active one. */
-export async function listEnvs(): Promise<{
-  active: string;
-  environments: Record<string, Environment>;
-}> {
-  const config = await loadConfig();
-  return {
-    active: config.activeEnvironment,
-    environments: config.environments,
-  };
-}
-
 /** Returns the file path where a given environment's cached schema is stored. */
 export function getSchemaPath(envName: string): string {
   return join(SCHEMAS_DIR, `${envName}.graphql`);

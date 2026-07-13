@@ -3,6 +3,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { fetchSchemaForEnv } from "../services/schema.js";
+import { toolErrorResult } from "./action-tool.js";
 
 /** Registers the `vex_refetch_schema` MCP tool. */
 export function registerRefetchSchemaTool(server: McpServer): void {
@@ -15,21 +16,25 @@ export function registerRefetchSchemaTool(server: McpServer): void {
       ),
     },
     async (input) => {
-      const result = await fetchSchemaForEnv(input.environment);
+      try {
+        const result = await fetchSchemaForEnv(input.environment);
 
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: [
-              `Schema refreshed for "${result.name}".`,
-              `Types: ${result.typeCount}`,
-              `Query fields: ${result.queryFields}`,
-              `Mutation fields: ${result.mutationFields}`,
-            ].join("\n"),
-          },
-        ],
-      };
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                `Schema refreshed for "${result.name}".`,
+                `Types: ${result.typeCount}`,
+                `Query fields: ${result.queryFields}`,
+                `Mutation fields: ${result.mutationFields}`,
+              ].join("\n"),
+            },
+          ],
+        };
+      } catch (err) {
+        return toolErrorResult(err);
+      }
     }
   );
 }
