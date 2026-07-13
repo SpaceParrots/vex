@@ -14,7 +14,8 @@ import {
   removeEnv as removeEnvConfig,
   switchEnv as switchEnvConfig,
   updateEnv as updateEnvConfig,
-  listEnvs as listEnvsConfig,
+  linkProject,
+  unlinkProject,
   loadConfig,
   getSchemaPath,
   envNotFoundMessage,
@@ -176,15 +177,44 @@ export async function switchEnvironment(name: string): Promise<void> {
   await switchEnvConfig(name);
 }
 
-/** Result containing all environments and the active one. */
+/** Result containing all environments, the active one, and project links. */
 export interface EnvListResult {
   readonly active: string;
   readonly environments: Readonly<Record<string, Environment>>;
+  readonly projects: Readonly<Record<string, string>>;
 }
 
-/** Lists all configured environments. */
+/** Lists all configured environments and project links. */
 export async function listEnvironments(): Promise<EnvListResult> {
-  return listEnvsConfig();
+  const config = await loadConfig();
+  return {
+    active: config.activeEnvironment,
+    environments: config.environments,
+    projects: config.projects ?? {},
+  };
+}
+
+/** Input for linking a project directory to an environment. */
+export interface LinkProjectInput {
+  readonly envName: string;
+  /** Directory to link; defaults to the current working directory. */
+  readonly path?: string;
+}
+
+/** Links a project directory to an environment (defaults to cwd). */
+export async function linkProjectPath(
+  input: LinkProjectInput
+): Promise<{ readonly envName: string; readonly path: string }> {
+  const path = input.path ?? process.cwd();
+  await linkProject(path, input.envName);
+  return { envName: input.envName, path };
+}
+
+/** Removes the project link for a directory (defaults to cwd). */
+export async function unlinkProjectPath(path?: string): Promise<{ readonly path: string }> {
+  const target = path ?? process.cwd();
+  await unlinkProject(target);
+  return { path: target };
 }
 
 /** Detailed view of a single environment with a masked API key. */

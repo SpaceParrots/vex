@@ -1,11 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { noEnvironmentMessage } from "../../src/config.js";
 
 vi.mock("../../src/context.js", async (orig) => {
   const actual = await orig<typeof import("../../src/context.js")>();
   return { ...actual, getCurrentEnv: vi.fn() };
 });
 
+vi.mock("../../src/config.js", async (orig) => {
+  const actual = await orig<typeof import("../../src/config.js")>();
+  return {
+    ...actual,
+    linkProject: vi.fn(async () => ({})),
+    unlinkProject: vi.fn(async () => ({})),
+  };
+});
+
+import { noEnvironmentMessage, linkProject, unlinkProject } from "../../src/config.js";
 import { getCurrentEnv, NoEnvironmentError } from "../../src/context.js";
 import { currentEnvLine } from "../../src/services/env.js";
 
@@ -75,5 +84,24 @@ describe("noEnvironmentMessage", () => {
     expect(noEnvironmentMessage(envs)).toBe(
       "No environment selected. Pass an explicit env name or run `vex env switch <name>` to set one active. Available: a, b."
     );
+  });
+});
+
+describe("project link service wrappers", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("linkProjectPath defaults the path to cwd and delegates to config", async () => {
+    const { linkProjectPath } = await import("../../src/services/env.js");
+    const result = await linkProjectPath({ envName: "dev" });
+    expect(result.envName).toBe("dev");
+    expect(result.path).toBe(process.cwd());
+    expect(vi.mocked(linkProject)).toHaveBeenCalledWith(process.cwd(), "dev");
+  });
+
+  it("unlinkProjectPath defaults the path to cwd", async () => {
+    const { unlinkProjectPath } = await import("../../src/services/env.js");
+    const result = await unlinkProjectPath();
+    expect(result.path).toBe(process.cwd());
+    expect(vi.mocked(unlinkProject)).toHaveBeenCalledWith(process.cwd());
   });
 });

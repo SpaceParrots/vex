@@ -12,6 +12,8 @@ import {
   showEnvironment,
   statusEnvironment,
   currentEnvLine,
+  linkProjectPath,
+  unlinkProjectPath,
 } from "../services/env.js";
 import { getSchemaPath } from "../config.js";
 import { runEnvAddWizard } from "../wizard/envAdd.js";
@@ -100,15 +102,20 @@ Examples:
     .description("List all environments")
     .action(async () => {
       try {
-        const { active, environments } = await listEnvironments();
+        const { active, environments, projects } = await listEnvironments();
         const entries = Object.entries(environments);
         if (entries.length === 0) {
           printInfo("No environments configured. Use `vex env add` to create one.");
           return;
         }
+        const projectsFor = (name: string): string =>
+          Object.entries(projects)
+            .filter(([, envName]) => envName === name)
+            .map(([p]) => p)
+            .join(", ");
         printTable(
-          ["Name", "URL", "Active"],
-          entries.map(([n, e]) => [n, e.url, n === active ? "yes" : ""])
+          ["Name", "URL", "Active", "Projects"],
+          entries.map(([n, e]) => [n, e.url, n === active ? "yes" : "", projectsFor(n)])
         );
       } catch (err) {
         handleError(err);
@@ -202,6 +209,30 @@ Examples:
     .action(async () => {
       try {
         printInfo(await currentEnvLine());
+      } catch (err) {
+        handleError(err);
+      }
+    });
+
+  env
+    .command("link <envName> [path]")
+    .description("Link a project directory to an environment (defaults to the current directory)")
+    .action(async (envName: string, path: string | undefined) => {
+      try {
+        const result = await linkProjectPath({ envName, path });
+        printSuccess(`Linked ${result.path} → "${result.envName}". vex now auto-selects it inside that directory.`);
+      } catch (err) {
+        handleError(err);
+      }
+    });
+
+  env
+    .command("unlink [path]")
+    .description("Remove the project link for a directory (defaults to the current directory)")
+    .action(async (path: string | undefined) => {
+      try {
+        const result = await unlinkProjectPath(path);
+        printSuccess(`Unlinked ${result.path}.`);
       } catch (err) {
         handleError(err);
       }
