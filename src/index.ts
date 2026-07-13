@@ -7,7 +7,7 @@
  */
 
 import { startMcpServer } from "./mcp.js";
-import { createCli } from "./cli.js";
+import { createCli, expandShortcuts } from "./cli.js";
 
 /** Determines the execution mode and starts the appropriate interface. */
 async function main(): Promise<void> {
@@ -22,7 +22,7 @@ async function main(): Promise<void> {
 
   // Everything else → CLI
   const program = createCli();
-  await program.parseAsync(process.argv);
+  await program.parseAsync(expandShortcuts(process.argv) as string[]);
 }
 
 main().catch((err) => {

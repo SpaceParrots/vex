@@ -29,6 +29,34 @@ import { enterEnvContext } from "./context.js";
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json") as { version: string };
 
+/**
+ * Instinctive top-level shortcuts → canonical subcommand form.
+ * `vex products --take 5` behaves exactly like `vex product list --take 5`.
+ */
+const SHORTCUTS: Readonly<Record<string, readonly string[]>> = {
+  envs: ["env", "list"],
+  products: ["product", "list"],
+  customers: ["customer", "list"],
+  orders: ["order", "list"],
+  assets: ["asset", "list"],
+  channels: ["channel", "list"],
+  zones: ["zone", "list"],
+  fragments: ["fragment", "list"],
+  operations: ["operation", "list"],
+  use: ["env", "switch"],
+};
+
+/**
+ * Expands a shortcut in the first CLI argument (after node + script),
+ * e.g. `vex products --take 5` → `vex product list --take 5`.
+ * Returns argv unchanged when no shortcut matches.
+ */
+export function expandShortcuts(argv: readonly string[]): readonly string[] {
+  const [node, script, first, ...rest] = argv;
+  const expansion = first !== undefined ? SHORTCUTS[first] : undefined;
+  return expansion ? [node, script, ...expansion, ...rest] : argv;
+}
+
 /** Creates and returns the root Commander program with all registered subcommands. */
 export function createCli(): Command {
   const program = new Command();
@@ -37,6 +65,7 @@ export function createCli(): Command {
     .name("vex")
     .description("CLI and MCP server for Vendure Admin API")
     .version(version)
+    .showSuggestionAfterError()
     .option(
       "--env <name>",
       "Target environment for this command (overrides VEX_ENV and the active env)"
@@ -57,6 +86,12 @@ Examples:
 Reusable building blocks:
   fragments    field selections you reuse across operations  (vex fragment ...)
   operations   full queries/mutations with default variables (vex operation ...)
+
+Shortcuts:
+  vex envs | products | customers | orders | assets | channels | zones
+               list the domain (same flags as the list subcommand)
+  vex use <env>                              switch the active environment
+  vex status                                 health panel for the current environment
 `
     );
 
@@ -82,6 +117,13 @@ Reusable building blocks:
   program.addCommand(createBuildCommand());
   program.addCommand(createOperationCommand());
   program.addCommand(createRunCommand());
+
+  // Bare group commands (e.g. `vex product`) print their subcommand help.
+  for (const cmd of program.commands) {
+    if (cmd.commands.length > 0) {
+      cmd.action(() => cmd.help());
+    }
+  }
 
   return program;
 }
