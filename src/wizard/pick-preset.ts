@@ -1,5 +1,5 @@
 /**
- * @module wizard/pickPreset
+ * @module wizard/pick-preset
  *
  * Step 2 of the wizard: select-set preset menu.
  * Returns a tag the orchestrator uses to route to the next step.

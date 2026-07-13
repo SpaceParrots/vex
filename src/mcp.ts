@@ -20,7 +20,7 @@ import { registerZoneTools } from "./tools/zones.js";
 import { registerTaxTools } from "./tools/tax.js";
 import { registerChannelTools } from "./tools/channels.js";
 import { registerAssetTools } from "./tools/assets.js";
-import { registerSchemaIntrospectionTools } from "./tools/schemaIntrospection.js";
+import { registerSchemaIntrospectionTools } from "./tools/schema-introspection.js";
 import { registerFragmentTools } from "./tools/fragments.js";
 import { registerOperationTools } from "./tools/operations.js";
 import { registerCurrentEnvTool } from "./tools/current-env.js";

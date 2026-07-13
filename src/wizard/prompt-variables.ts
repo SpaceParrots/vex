@@ -1,5 +1,5 @@
 /**
- * @module wizard/promptVariables
+ * @module wizard/prompt-variables
  *
  * Step 1 of the wizard: prompt for each operation argument.
  * For *ListOptions inputs, run a structured take/skip/sort/filter sub-flow.

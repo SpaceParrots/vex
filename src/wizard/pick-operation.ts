@@ -1,5 +1,5 @@
 /**
- * @module wizard/pickOperation
+ * @module wizard/pick-operation
  *
  * Step 0 of the wizard. Resolves an operation by name; if missing, runs a
  * text-filter prompt followed by a clack `select` over the filtered ops.

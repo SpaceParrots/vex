@@ -1,4 +1,4 @@
-/** @module tools/schemaIntrospection — `vex_schema` action-dispatch MCP tool for slice-based schema discovery. */
+/** @module tools/schema-introspection — `vex_schema` action-dispatch MCP tool for slice-based schema discovery. */
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";

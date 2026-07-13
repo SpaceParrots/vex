@@ -1,5 +1,5 @@
 /**
- * @module wizard/pickFields
+ * @module wizard/pick-fields
  *
  * Step 3 of the wizard (Customize path). Flat multi-select over every
  * reachable leaf path up to the configured max depth.

@@ -91,3 +91,5 @@ Commands and tools are thin wrappers; business logic lives in services. CLI comm
 ## Conventions
 
 - Tool names are prefixed with `vex_` and use snake_case; `action` values use snake_case too (e.g. `add_note`, `create_variants`)
+- File names are kebab-case (`action-tool.ts`, `env-add.ts`, `schema-introspection.ts`) — enforced by `unicorn/filename-case` in `npm run lint`
+- Every exported function, tool, and module carries a JSDoc comment; files open with an `@module` block

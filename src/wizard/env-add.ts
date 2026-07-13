@@ -1,5 +1,5 @@
 /**
- * @module wizard/envAdd
+ * @module wizard/env-add
  *
  * Interactive wizard for `vex env add`. Prompts for any missing required
  * fields (URL, API key) and validates the connection by running a GraphQL

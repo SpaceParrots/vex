@@ -30,11 +30,11 @@ import { buildAndExecute, buildDocument } from "../services/builder.js";
 import type { Selection } from "../schema-model/types.js";
 import type { FragmentDefinition } from "../schema-model/render.js";
 import { DEFAULT_SELECTOR_MAX_DEPTH, MAX_SELECTOR_DEPTH } from "../constants.js";
-import { pickOperation } from "./pickOperation.js";
-import { promptVariables } from "./promptVariables.js";
-import { pickPreset } from "./pickPreset.js";
-import { pickFields } from "./pickFields.js";
-import { maybeSaveFragment } from "./saveFragment.js";
+import { pickOperation } from "./pick-operation.js";
+import { promptVariables } from "./prompt-variables.js";
+import { pickPreset } from "./pick-preset.js";
+import { pickFields } from "./pick-fields.js";
+import { maybeSaveFragment } from "./save-fragment.js";
 
 /** Inputs to {@link runWizard}. */
 export interface RunWizardInput {

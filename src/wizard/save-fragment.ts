@@ -1,5 +1,5 @@
 /**
- * @module wizard/saveFragment
+ * @module wizard/save-fragment
  *
  * Step 4 of the wizard (post-Customize). Optionally persists the built
  * Selection as a fragment file.

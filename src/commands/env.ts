@@ -17,7 +17,7 @@ import {
   unlinkProjectPath,
 } from "../services/env.js";
 import { getSchemaPath } from "../config.js";
-import { runEnvAddWizard } from "../wizard/envAdd.js";
+import { runEnvAddWizard } from "../wizard/env-add.js";
 import { printJson, printSuccess, printInfo, printTable, handleError } from "../output.js";
 import { VexError } from "../errors.js";
 
