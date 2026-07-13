@@ -9,18 +9,16 @@ vi.mock("../../src/config.js", async (orig) => {
   const actual = await orig<typeof import("../../src/config.js")>();
   return {
     ...actual,
-    loadConfig: vi.fn(),
     linkProject: vi.fn(async () => ({})),
     unlinkProject: vi.fn(async () => ({})),
   };
 });
 
-import { noEnvironmentMessage, linkProject, unlinkProject, loadConfig } from "../../src/config.js";
+import { noEnvironmentMessage, linkProject, unlinkProject } from "../../src/config.js";
 import { getCurrentEnv, NoEnvironmentError } from "../../src/context.js";
 import { currentEnvLine } from "../../src/services/env.js";
 
 const mockedGetCurrentEnv = vi.mocked(getCurrentEnv);
-const mockedLoadConfig = vi.mocked(loadConfig);
 
 describe("currentEnvLine", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -66,6 +64,18 @@ describe("currentEnvLine", () => {
     });
     expect(await currentEnvLine()).toBe(
       "staging → staging.example.com (via env param)"
+    );
+  });
+
+  it("formats a project-link resolution with the linked path", async () => {
+    mockedGetCurrentEnv.mockResolvedValue({
+      name: "dev",
+      env: { url: "https://dev.example.com/admin-api", apiKey: "x" },
+      source: "project",
+      projectPath: "/repos/shop",
+    });
+    expect(await currentEnvLine()).toBe(
+      "dev → dev.example.com (via project link /repos/shop)"
     );
   });
 });

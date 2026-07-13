@@ -205,7 +205,7 @@ Examples:
 
   env
     .command("current")
-    .description("Show which environment is currently in use (env param > VEX_ENV > active)")
+    .description("Show which environment is currently in use (env param > VEX_ENV > project link > active)")
     .action(async () => {
       try {
         printInfo(await currentEnvLine());
