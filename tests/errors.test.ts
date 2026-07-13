@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   VexError,
+  ConfigError,
+  NoEnvironmentError,
+  EnvNotFoundError,
   NetworkError,
   GraphQLRequestError,
   PermissionError,
@@ -23,6 +26,20 @@ describe("VexError", () => {
     expect(err.hint).toBe("try again");
     expect((err as Error & { cause?: unknown }).cause).toBe(cause);
     expect(err.name).toBe("VexError");
+  });
+  it("gives config and environment errors their own codes", () => {
+    const config = new ConfigError("config is corrupt", { hint: "delete the file" });
+    expect(config.code).toBe("CONFIG");
+    expect(config.name).toBe("ConfigError");
+    expect(config.hint).toBe("delete the file");
+
+    const noEnv = new NoEnvironmentError("no environment configured");
+    expect(noEnv.code).toBe("NO_ENV");
+    expect(noEnv.name).toBe("NoEnvironmentError");
+
+    const notFound = new EnvNotFoundError('environment "staging" not found');
+    expect(notFound.code).toBe("ENV_NOT_FOUND");
+    expect(notFound.name).toBe("EnvNotFoundError");
   });
 });
 
