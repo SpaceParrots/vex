@@ -13,6 +13,7 @@ import { getCurrentEnv, type EnvSource } from "../context.js";
 import { getSchemaPath, getConfigPath } from "../config.js";
 import { checkEndpoint, maskApiKey, tildeify } from "./env.js";
 
+/** Vex's own version, read from package.json — `import` of JSON is not stable under NodeNext. */
 const require = createRequire(import.meta.url);
 const { version } = require("../../package.json") as { version: string };
 

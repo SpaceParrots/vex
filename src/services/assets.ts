@@ -11,6 +11,7 @@ import { getCurrentEnv } from "../context.js";
 import { requestWithUploads } from "../upload.js";
 import { DEFAULT_PAGE_SIZE, DEFAULT_SKIP } from "../constants.js";
 
+/** Selection set shared by every asset query/mutation, so all return the same shape. */
 const ASSET_FIELDS = `id createdAt name type fileSize mimeType width height source preview tags { value }`;
 
 /** Input for uploading one or more files as new assets. */

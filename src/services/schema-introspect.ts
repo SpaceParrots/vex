@@ -21,9 +21,10 @@ import {
 } from "graphql";
 import { customFieldsType } from "../schema-model/classify.js";
 
+/** Built-in GraphQL scalars, excluded when listing a type's referenced types. */
 const BUILTIN = new Set(["String", "Int", "Float", "Boolean", "ID"]);
 
-/** Canonical SDL string for any GraphQL type (e.g. `[Customer!]!`). No cast needed. */
+/** Canonical SDL string for any GraphQL type (e.g. `[Customer!]!`). */
 const gqlTypeStr = (t: GraphQLType): string => String(t);
 
 /**
@@ -107,7 +108,6 @@ export function listCustomFields(
   if (!cf) {
     return { customFields: null, message: `Type "${typeName}" has no typed customFields.` };
   }
-  // Bug 4 fix: use instanceof directly for narrowing, no casts.
   const fields: CustomFieldInfo[] = Object.values(cf.getFields()).map((f) => {
     const nonNull = f.type instanceof GraphQLNonNull;
     const inner = f.type instanceof GraphQLNonNull ? f.type.ofType : f.type;

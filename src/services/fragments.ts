@@ -54,7 +54,9 @@ export interface SaveFragmentInput {
   readonly overwrite?: boolean;
 }
 
+/** Safe fragment name: a GraphQL identifier, so it cannot escape the env directory. */
 const NAME_RE = /^[A-Za-z][A-Za-z0-9]*$/;
+/** Safe environment name: no path separators or dots, so it cannot traverse upward. */
 const ENV_NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /** Throws if the fragment name does not match the safe identifier pattern. */
@@ -89,7 +91,6 @@ function extractFragmentDef(doc: DocumentNode): FragmentDefinitionNode {
 }
 
 /** Strips `NonNull`/`List` wrappers to get at the underlying named GraphQL type. */
-// Use instanceof — no `as unknown as` casts.
 function unwrapToNamed(t: unknown): unknown {
   let cur: unknown = t;
   while (cur instanceof GraphQLNonNull || cur instanceof GraphQLList) {
@@ -215,10 +216,15 @@ export interface ListFragmentsInput {
   readonly onType?: string;
 }
 
-/** Reads and parses a fragment file into its {@link FragmentMeta} summary. */
+/**
+ * Reads and parses a fragment file into its {@link FragmentMeta} summary.
+ *
+ * @returns `null` if the file is malformed (unparseable SDL, or not exactly one
+ *   fragment definition), so a bad file is skipped rather than failing a list.
+ * @throws Filesystem errors propagate — a disk error surfaces to the user
+ *   instead of being silently swallowed as a malformed file.
+ */
 async function readMeta(filePath: string): Promise<FragmentMeta | null> {
-  // Filesystem errors propagate; only parse / shape errors yield null so that
-  // a malformed file is silently skipped while a disk error surfaces to the user.
   const sdl = await readFile(filePath, "utf-8");
   try {
     const doc = parse(sdl);

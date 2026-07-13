@@ -27,8 +27,11 @@ function envDir(envName: string): string {
   return getOperationsDir(envName);
 }
 
+/** Safe operation name: a GraphQL identifier, so it cannot escape the env directory. */
 const NAME_RE = /^[A-Za-z][A-Za-z0-9]*$/;
+/** Safe environment name: no path separators or dots, so it cannot traverse upward. */
 const ENV_NAME_RE = /^[A-Za-z0-9_-]+$/;
+/** Variable keys rejected on merge — assigning them would pollute the prototype chain. */
 const RESERVED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 /** Throws if the operation name does not match the safe identifier pattern. */
