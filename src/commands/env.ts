@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import { writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
+import { select, isCancel, cancel } from "@clack/prompts";
 import {
   addEnvironment,
   removeEnvironment,
@@ -18,6 +19,7 @@ import {
 import { getSchemaPath } from "../config.js";
 import { runEnvAddWizard } from "../wizard/envAdd.js";
 import { printJson, printSuccess, printInfo, printTable, handleError } from "../output.js";
+import { VexError } from "../errors.js";
 
 /** Creates the `vex env` command group with add, list, switch, remove, set, and show subcommands. */
 export function createEnvCommand(): Command {
@@ -215,11 +217,34 @@ Examples:
     });
 
   env
-    .command("link <envName> [path]")
+    .command("link [envName] [path]")
     .description("Link a project directory to an environment (defaults to the current directory)")
-    .action(async (envName: string, path: string | undefined) => {
+    .action(async (envName: string | undefined, path: string | undefined) => {
       try {
-        const result = await linkProjectPath({ envName, path });
+        let resolvedName = envName;
+        if (!resolvedName) {
+          if (process.stdin.isTTY !== true) {
+            throw new VexError("Missing environment name.", {
+              hint: "Usage: vex env link <envName> [path]",
+            });
+          }
+          const { active, environments } = await listEnvironments();
+          const names = Object.keys(environments);
+          if (names.length === 0) {
+            throw new VexError("No environments configured.", { hint: "Run `vex env add` first." });
+          }
+          const picked = await select({
+            message: "Link this directory to which environment?",
+            options: names.map((n) => ({ value: n, label: n === active ? `${n} (active)` : n })),
+            initialValue: names.includes(active) ? active : names[0],
+          });
+          if (isCancel(picked)) {
+            cancel("Cancelled.");
+            process.exit(1);
+          }
+          resolvedName = picked;
+        }
+        const result = await linkProjectPath({ envName: resolvedName, path });
         printSuccess(`Linked ${result.path} → "${result.envName}". vex now auto-selects it inside that directory.`);
       } catch (err) {
         handleError(err);

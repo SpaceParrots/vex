@@ -1,6 +1,7 @@
 /** @module commands/asset — CLI subcommands for Vendure assets (upload, list, get, update, delete). */
 
 import { Command, InvalidArgumentError } from "commander";
+import { text, isCancel, cancel } from "@clack/prompts";
 import {
   uploadAssets,
   listAssets,
@@ -9,6 +10,7 @@ import {
   deleteAsset,
 } from "../services/assets.js";
 import { printJson, printSuccess, handleError } from "../output.js";
+import { VexError } from "../errors.js";
 
 /** Parses a `--tags a,b,c` value into a trimmed string array. */
 function parseTags(value: string): string[] {
@@ -40,12 +42,27 @@ Examples:
   );
 
   asset
-    .command("upload <files...>")
+    .command("upload [files...]")
     .description("Upload local files as new assets (GraphQL multipart request)")
     .option("--tags <tags>", "Comma-separated tags applied to every uploaded asset", parseTags)
     .action(async (files: string[], opts: { tags?: string[] }) => {
       try {
-        const result = await uploadAssets({ filePaths: files, tags: opts.tags });
+        let filePaths = files;
+        if (filePaths.length === 0) {
+          if (process.stdin.isTTY !== true) {
+            throw new VexError("No files given.", { hint: "Usage: vex asset upload <files...>" });
+          }
+          const answer = await text({
+            message: "Path of the file to upload",
+            validate: (v) => (v.trim().length === 0 ? "Enter a file path." : undefined),
+          });
+          if (isCancel(answer)) {
+            cancel("Cancelled.");
+            process.exit(1);
+          }
+          filePaths = [answer];
+        }
+        const result = await uploadAssets({ filePaths, tags: opts.tags });
         printJson(result);
       } catch (err) {
         handleError(err);
