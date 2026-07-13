@@ -48,21 +48,25 @@ If \`vex_setup\` action="show" reports no active env, ask the user for URL + API
 Most tools take an \`action\` parameter that selects the operation; each tool's description lists its valid actions and the fields each one needs. Set \`action\` first, then supply only that action's fields. Example: \`vex_customers {action:"list", filterByEmail:"…"}\` or \`vex_products {action:"get", id:"…"}\`.
 
 # Choosing the environment
-Most tools accept an optional \`env\` param to target a specific environment for that call; without it, vex uses \`VEX_ENV\` (set per project) and then the active environment. (\`vex_setup\` edits config directly, and \`vex_refetch_schema\` takes an explicit \`environment\` name.) Call \`vex_current_env\` to see which environment is currently in use.
+Most tools accept an optional \`env\` param to target a specific environment for that call; without it, vex uses \`VEX_ENV\`, then a project link matching the server's working directory, then the active environment. (\`vex_setup\` edits config directly, and \`vex_refetch_schema\` takes an explicit \`environment\` name.) Call \`vex_current_env\` to see which environment is currently in use.
 
 # Choosing the right tool
 Pick the highest-level tool that matches the user's request:
 - **Typed entity tools** (\`vex_customers\`, \`vex_products\`, \`vex_orders\`,
-  \`vex_zones\`, \`vex_tax\`, \`vex_channels\`) are the preferred path for standard
-  Vendure entities. They validate input with Zod and return shaped JSON.
+  \`vex_zones\`, \`vex_tax\`, \`vex_channels\`, \`vex_assets\`) are the preferred path
+  for standard Vendure entities. They validate input with Zod and return
+  shaped JSON. \`vex_assets\` uploads local files as assets (action \`upload\`
+  with \`filePaths\`).
 - **Schema discovery** (\`vex_schema\` with action \`list_operations\`,
-  \`describe_operation\`, \`describe_type\`, or \`list_custom_fields\`) — use to
-  discover what's available before falling back to raw GraphQL. This lists
-  operations on the **schema**; don't confuse it with \`vex_operations\`
-  (replayable queries the user has saved).
+  \`describe_operation\`, \`describe_type\`, \`list_custom_fields\`, or
+  \`list_permissions\`) — use to discover what's available before falling back
+  to raw GraphQL. This lists operations on the **schema**; don't confuse it
+  with \`vex_operations\` (replayable queries the user has saved).
 - **Raw GraphQL** (\`vex_query\`, \`vex_mutate\`) — escape hatch for custom plugin
   operations or anything the typed tools don't cover. Read the schema resource
-  or use \`vex_schema\` first so the document is correct.
+  or use \`vex_schema\` first so the document is correct. \`vex_mutate\` accepts a
+  \`files\` map (dotted variable path → local file path) for Upload-scalar
+  mutations.
 
 # Reusable queries
 - **Fragments** (\`vex_fragments\` with action \`list\`/\`get\`/\`save\`/\`delete\`)
@@ -79,6 +83,12 @@ When started with the env var \`VEX_TOOLS=lean\`, only the universal interface i
 exposed (\`vex_setup\`, \`vex_current_env\`, \`vex_refetch_schema\`, \`vex_query\`,
 \`vex_mutate\`, \`vex_schema\`). Drive everything via \`vex_schema\` discovery plus
 raw \`vex_query\`/\`vex_mutate\`.
+
+# Permission errors
+A FORBIDDEN/UNAUTHORIZED failure means the API key's role lacks a permission.
+The error names the operation and suggests likely Permission values; verify
+with vex_schema action "list_permissions" and tell the user which permission
+to assign to the key's role in the Vendure admin UI.
 
 # Vendure quick reference
 Mutations often return unions (\`Entity | ErrorResult\`) — branch on the response and surface \`errorCode\`/\`message\` from the error branch. List queries take \`ListOptions { take, skip, filter, sort }\`; default to small \`take\` (~10). Filter values use real JSON types (\`true\` not \`"true"\`, \`10\` not \`"10"\`). Never echo full API keys back to the user.

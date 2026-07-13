@@ -71,6 +71,14 @@ vex run ContentsPublished --var "options={\"take\":5}"
 vex schema fetch
 ```
 
+### Connect to Claude Code
+
+```bash
+vex mcp install          # writes ./.mcp.json (lean tools + VEX_ENV) and links the repo to the env
+```
+
+Prefer reviewing first? `vex mcp config` prints the snippet without writing.
+
 ## CLI reference
 
 ### Environment management
@@ -94,7 +102,8 @@ vex resolves the environment for each operation in this order:
 
 1. An explicit name — the `env` parameter on any MCP tool, or `--env <name>` on any CLI command.
 2. The `VEX_ENV` environment variable — handy as a per-project default.
-3. The globally active environment (`vex env switch <name>`).
+3. A project link matching the current working directory (see below).
+4. The globally active environment (`vex env switch <name>`).
 
 Per-project default via `.mcp.json` (no switching needed):
 
@@ -115,11 +124,48 @@ vex env current
 
 The `vex_current_env` MCP tool returns the same one-line summary.
 
+### Project-linked environments
+
+Link a directory to an environment so vex auto-selects it there — no `VEX_ENV`,
+no switching:
+
+```bash
+vex env link dev            # link the current directory to "dev" (interactive picker if the name is omitted)
+vex env link staging ../api # link a specific path to "staging"
+vex env unlink               # remove the link for the current directory
+```
+
+Links are stored in `config.json`'s `projects` map and are checked by walking
+up from the current directory, so a link on a parent directory also covers its
+subdirectories. `vex mcp install` offers to create one automatically.
+
+`vex status` shows which environment is currently in use and why (`--env` flag,
+`VEX_ENV`, project link, or the active environment), alongside endpoint
+reachability and schema freshness:
+
+```bash
+vex status
+```
+
 ### Schema
 
 ```bash
 vex schema fetch [--env <name>]                       # Fetch and cache GraphQL schema
+vex schema permissions [--json]                       # List Permission enum values (incl. custom plugin permissions)
 ```
+
+### Permissions
+
+If a mutation or query fails with `FORBIDDEN`/`UNAUTHORIZED`, the API key's
+role lacks a permission. vex names the denied operation and suggests the
+likely `Permission` values in the error's hint — assign one of them to the
+key's role in the Vendure admin UI. Browse all available permissions any time:
+
+```bash
+vex schema permissions
+```
+
+The `vex_schema` MCP tool exposes the same list via action `list_permissions`.
 
 ### Interactive builder
 
@@ -163,6 +209,35 @@ vex mutate '<graphql>' [--variables '<json>']         # Run any mutation
 ### Customers, Products, Orders, Channels, Zones, Tax
 
 Each resource supports `list`, `get`, `create`, `update`, and `delete` plus resource-specific actions (e.g. `customer add-note`, `product add-variants`, `order transition`, `zone add-members`, `tax create-rate`). Run `vex <resource> --help` for full options.
+
+### Assets
+
+Upload local files as Vendure assets — vex handles the GraphQL multipart request for you:
+
+```bash
+vex asset upload ./logo.png --tags branding      # upload one or more files
+vex asset list --name logo --take 10
+vex asset update 42 --focal 0.5,0.3
+vex asset delete 42
+```
+
+The `vex_assets` MCP tool exposes the same operations (action `upload` takes
+`filePaths` + optional `tags`). For custom plugin mutations with their own
+`Upload` variables, use the raw escape hatch:
+
+```bash
+vex mutate '<graphql>' --file "input.0.file=./logo.png"
+```
+
+### Shortcuts
+
+Plural shortcuts skip straight to a resource's `list`:
+
+```bash
+vex envs | products | customers | orders | assets | channels | zones | fragments | operations
+```
+
+`vex use <env>` is shorthand for `vex env switch <env>`.
 
 ## Two-minute walkthrough
 
@@ -220,12 +295,12 @@ Server-level **`instructions`** are shipped with the MCP handshake, so Claude al
 
 ### Available MCP tools
 
-To keep the per-session token cost low, vex groups each entity domain into a **single action-dispatch tool**: you pass an `action` parameter (e.g. `list`, `get`, `create`) plus that action's fields. In full mode vex exposes **14 tools**:
+To keep the per-session token cost low, vex groups each entity domain into a **single action-dispatch tool**: you pass an `action` parameter (e.g. `list`, `get`, `create`) plus that action's fields. In full mode vex exposes **15 tools**:
 
 | Group | Tool | Actions |
 |-------|------|---------|
 | Setup & schema | `vex_setup`, `vex_refetch_schema`, `vex_current_env` | (standalone) |
-| Schema discovery | `vex_schema` | `describe_type`, `list_custom_fields`, `list_operations`, `describe_operation` |
+| Schema discovery | `vex_schema` | `describe_type`, `list_custom_fields`, `list_operations`, `describe_operation`, `list_permissions` |
 | Raw GraphQL | `vex_query`, `vex_mutate` | (standalone) |
 | Customers | `vex_customers` | `list`, `get`, `create`, `update`, `delete`, `add_note` |
 | Products | `vex_products` | `list`, `get`, `create`, `update`, `delete`, `create_variants` |
@@ -233,6 +308,7 @@ To keep the per-session token cost low, vex groups each entity domain into a **s
 | Channels | `vex_channels` | `list`, `get`, `get_active`, `update` |
 | Zones & countries | `vex_zones` | `list`, `get`, `create`, `update`, `delete`, `add_members`, `remove_members`, `create_country`, `list_countries` |
 | Tax | `vex_tax` | `list_categories`, `get_category`, `create_category`, `delete_category`, `list_rates`, `get_rate`, `create_rate`, `update_rate`, `delete_rate` |
+| Assets | `vex_assets` | `upload`, `list`, `get`, `update`, `delete` |
 | Fragments | `vex_fragments` | `list`, `get`, `save`, `delete` |
 | Saved operations | `vex_operations` | `list`, `get`, `run`, `delete` |
 
@@ -242,7 +318,7 @@ The cached GraphQL schema is also exposed as the MCP resource `vendure://schema/
 
 #### Lean mode (`VEX_TOOLS=lean`)
 
-Set the env var `VEX_TOOLS=lean` (alias `minimal`) in your MCP client config to register only the **universal interface** — `vex_setup`, `vex_current_env`, `vex_refetch_schema`, `vex_query`, `vex_mutate`, and `vex_schema` (6 tools). Claude drives Vendure via `vex_schema` discovery plus raw GraphQL, trading some convenience for the smallest possible per-session token footprint. The default (`VEX_TOOLS` unset or `full`) registers all 14 tools.
+Set the env var `VEX_TOOLS=lean` (alias `minimal`) in your MCP client config to register only the **universal interface** — `vex_setup`, `vex_current_env`, `vex_refetch_schema`, `vex_query`, `vex_mutate`, and `vex_schema` (6 tools). Claude drives Vendure via `vex_schema` discovery plus raw GraphQL, trading some convenience for the smallest possible per-session token footprint. The default (`VEX_TOOLS` unset or `full`) registers all 15 tools.
 
 ```jsonc
 {
@@ -264,7 +340,7 @@ Configuration lives under `~/.vendure-vex/`:
 
 | Path | What's there |
 |------|--------------|
-| `config.json` | Environments: `{ url, apiKey, schemaSource? }` keyed by name + `activeEnvironment` |
+| `config.json` | Environments: `{ url, apiKey, schemaSource? }` keyed by name + `activeEnvironment` + `projects` (directory → env name links) |
 | `schemas/<env>.graphql` | Cached SDL per environment |
 | `fragments/<env>/<Name>.graphql` | Saved fragments per environment |
 | `operations/<env>/<Name>.json` | Saved operations (document + default variables) per environment |
