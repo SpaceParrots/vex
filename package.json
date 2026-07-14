@@ -1,6 +1,6 @@
 {
   "name": "@spaceparrots/vex",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "CLI tool and MCP server for Vendure Admin API",
   "type": "module",
   "main": "dist/index.js",
