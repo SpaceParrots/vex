@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/SpaceParrots/vex/compare/v1.1.0...v1.1.1) (2026-07-14)
+
+
+### Bug Fixes
+
+* **mcp:** resolve the schema resource against the current env and re-read it per request ([#36](https://github.com/SpaceParrots/vex/issues/36)) ([4e30602](https://github.com/SpaceParrots/vex/commit/4e30602eb52bf68ac7999b0d0ed9e4cd29399bcb))
+
 ## [1.1.0](https://github.com/SpaceParrots/vex/compare/v1.0.0...v1.1.0) (2026-07-14)
 
 
