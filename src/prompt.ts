@@ -38,3 +38,12 @@ export function unwrapCancel<T>(value: T | symbol, message?: string): T {
   }
   return value;
 }
+
+/**
+ * The cancel path for the query wizard's prompt steps: nothing has been sent
+ * to Vendure yet, so cancelling is a clean no-op the user should be told about.
+ * Shared by every wizard step that aborts before the request is issued.
+ */
+export function bailNoRequest(): never {
+  cancelAndExit("Cancelled. No request sent.");
+}

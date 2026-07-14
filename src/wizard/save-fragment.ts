@@ -10,7 +10,7 @@ import type { GraphQLSchema } from "graphql";
 import { renderDocument } from "../schema-model/render.js";
 import type { Selection } from "../schema-model/types.js";
 import { saveFragment } from "../services/fragments.js";
-import { cancelAndExit } from "../prompt.js";
+import { bailNoRequest } from "../prompt.js";
 
 const NAME_RE = /^[A-Za-z][A-Za-z0-9]*$/;
 
@@ -46,11 +46,6 @@ function buildFragmentSdl(name: string, onType: string, selection: Selection): s
   return `fragment ${name} on ${onType} {\n  ${body.replace(/\n/g, "\n  ")}\n}\n`;
 }
 
-/** Reports the clack cancel prompt and exits the process (128 + SIGINT) — this wizard step's cancel path. */
-function bail(): never {
-  cancelAndExit("Cancelled. No request sent.");
-}
-
 /**
  * Offers to save `input.selection` as a reusable fragment. If confirmed,
  * prompts for a CamelCase name (re-prompting until valid), builds the SDL
@@ -64,7 +59,7 @@ export async function maybeSaveFragment(input: MaybeSaveFragmentInput): Promise<
     message: "Save this selection as a fragment?",
     initialValue: false,
   });
-  if (isCancel(yes)) bail();
+  if (isCancel(yes)) bailNoRequest();
   if (!yes) return;
 
   let name = "";
@@ -74,7 +69,7 @@ export async function maybeSaveFragment(input: MaybeSaveFragmentInput): Promise<
       placeholder: `${input.typeName}Custom`,
       defaultValue: `${input.typeName}Custom`,
     });
-    if (isCancel(raw)) bail();
+    if (isCancel(raw)) bailNoRequest();
     name = String(raw ?? "");
     if (NAME_RE.test(name)) break;
     console.error(`Invalid name "${name}". Use CamelCase letters/digits, starting with a letter.`);

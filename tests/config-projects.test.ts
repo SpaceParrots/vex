@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
-import { rmSync } from "node:fs";
-import { resolve } from "node:path";
+import { rmSync, writeFileSync } from "node:fs";
+import { resolve, join } from "node:path";
 
 // Created inside vi.hoisted so it exists before the hoisted module imports run
 // (config.ts calls homedir() at module load time). vi.importActual reaches the
@@ -26,7 +26,7 @@ import {
   normalizeProjectPath,
   saveConfig,
 } from "../src/config.js";
-import { EnvNotFoundError, VexError } from "../src/errors.js";
+import { ConfigError, EnvNotFoundError, VexError } from "../src/errors.js";
 
 const DEV = { url: "https://dev.example.com/admin-api", apiKey: "k" };
 
@@ -80,5 +80,52 @@ describe("linkProject / unlinkProject", () => {
     await linkProject("D:\\Shop\\backend", "dev");
     await removeEnv("dev");
     expect((await loadConfig()).projects).toEqual({});
+  });
+});
+
+describe("loadConfig validates the on-disk file", () => {
+  const configFile = join(tempHome, ".vendure-vex", "config.json");
+
+  it("rejects a file that is not valid JSON", async () => {
+    writeFileSync(configFile, "{ not json", "utf-8");
+    await expect(loadConfig()).rejects.toBeInstanceOf(ConfigError);
+    await expect(loadConfig()).rejects.toThrow(/not valid JSON/);
+  });
+
+  it("rejects valid JSON that is not a config object", async () => {
+    writeFileSync(configFile, JSON.stringify(["nope"]), "utf-8");
+    await expect(loadConfig()).rejects.toBeInstanceOf(ConfigError);
+  });
+
+  it("rejects a config missing the environments map", async () => {
+    writeFileSync(configFile, JSON.stringify({ activeEnvironment: "dev" }), "utf-8");
+    await expect(loadConfig()).rejects.toThrow(/not a valid vex config/);
+  });
+
+  it("carries an actionable hint rather than a bare parse error", async () => {
+    writeFileSync(configFile, "{ not json", "utf-8");
+    await expect(loadConfig()).rejects.toMatchObject({
+      hint: expect.stringContaining("vex env add"),
+    });
+  });
+
+  it("accepts a well-formed config, with or without project links", async () => {
+    writeFileSync(
+      configFile,
+      JSON.stringify({ activeEnvironment: "dev", environments: { dev: DEV } }),
+      "utf-8"
+    );
+    expect((await loadConfig()).environments.dev).toEqual(DEV);
+
+    writeFileSync(
+      configFile,
+      JSON.stringify({
+        activeEnvironment: "dev",
+        environments: { dev: DEV },
+        projects: { "/repos/shop": "dev" },
+      }),
+      "utf-8"
+    );
+    expect((await loadConfig()).projects).toEqual({ "/repos/shop": "dev" });
   });
 });

@@ -10,7 +10,8 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { existsSync } from "node:fs";
-import { EnvNotFoundError, NoEnvironmentError, VexError } from "./errors.js";
+import { ConfigError, EnvNotFoundError, NoEnvironmentError, VexError } from "./errors.js";
+import { isRecord } from "./guards.js";
 
 /** Describes how to obtain the GraphQL schema for an environment. */
 export interface SchemaSource {
@@ -57,13 +58,48 @@ async function ensureDirs(): Promise<void> {
   await mkdir(SCHEMAS_DIR, { recursive: true });
 }
 
-/** Loads the configuration from disk, returning an empty config if the file does not exist. */
+/**
+ * Narrows a JSON-parsed value to {@link VexConfig}, checking only the fields
+ * the rest of vex dereferences without asking. `environments` in particular:
+ * a file that parses as JSON but omits it would otherwise flow inward and
+ * fail as a `TypeError` in whichever call site happened to touch it first.
+ */
+function isVexConfig(value: unknown): value is VexConfig {
+  return (
+    isRecord(value) &&
+    typeof value.activeEnvironment === "string" &&
+    isRecord(value.environments) &&
+    (value.projects === undefined || isRecord(value.projects))
+  );
+}
+
+/**
+ * Loads the configuration from disk, returning an empty config if the file
+ * does not exist. The file is user-editable, so its contents are validated
+ * before being trusted as a {@link VexConfig}.
+ *
+ * @throws {ConfigError} If the file is not valid JSON, or parses but does not
+ *   have the shape of a vex config.
+ */
 export async function loadConfig(): Promise<VexConfig> {
   if (!existsSync(CONFIG_FILE)) {
     return emptyConfig();
   }
   const raw = await readFile(CONFIG_FILE, "utf-8");
-  return JSON.parse(raw) as VexConfig;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new ConfigError(`${CONFIG_FILE} is not valid JSON.`, {
+      hint: "Repair the file by hand, or delete it and re-add your environments with `vex env add`.",
+    });
+  }
+  if (!isVexConfig(parsed)) {
+    throw new ConfigError(`${CONFIG_FILE} is not a valid vex config.`, {
+      hint: 'Expected an object with "activeEnvironment" (string) and "environments" (object). Repair the file by hand, or delete it and re-add your environments with `vex env add`.',
+    });
+  }
+  return parsed;
 }
 
 /** Persists the configuration to disk, creating directories as needed. */

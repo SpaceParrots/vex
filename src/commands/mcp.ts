@@ -131,8 +131,10 @@ async function runInstall(dir: string | undefined, flags: InstallFlags): Promise
         "Cancelled."
       );
       if (!overwrite) {
+        // Declining the overwrite is a deliberate choice, not a failure — exit 0
+        // so `vex mcp install && <next step>` isn't broken by a user saying "no".
         p.cancel("Left .mcp.json unchanged.");
-        process.exit(1);
+        process.exit(0);
       }
     } else {
       throw new VexError(`${mcpPath} already contains a vex entry.`, {

@@ -7,7 +7,7 @@
 
 import { text, select, isCancel } from "@clack/prompts";
 import type { GraphQLSchema, GraphQLField } from "graphql";
-import { cancelAndExit } from "../prompt.js";
+import { bailNoRequest } from "../prompt.js";
 
 /** Inputs to {@link pickOperation}. */
 export interface PickOperationInput {
@@ -27,11 +27,6 @@ export interface PickOperationResult {
 /** Returns the schema's Query or Mutation root type for `kind`. */
 function rootFor(schema: GraphQLSchema, kind: "query" | "mutation") {
   return kind === "query" ? schema.getQueryType() : schema.getMutationType();
-}
-
-/** Reports the clack cancel prompt and exits the process (128 + SIGINT) — this wizard step's cancel path. */
-function bail(): never {
-  cancelAndExit("Cancelled. No request sent.");
 }
 
 /** Computes the classic edit-distance metric between two strings. */
@@ -83,7 +78,7 @@ export async function pickOperation(input: PickOperationInput): Promise<PickOper
     message: `Filter ${input.kind} operations (empty for all):`,
     placeholder: "e.g. cust",
   });
-  if (isCancel(filterRaw)) bail();
+  if (isCancel(filterRaw)) bailNoRequest();
   const filter = String(filterRaw ?? "").toLowerCase();
 
   const filtered = allNames
@@ -99,7 +94,7 @@ export async function pickOperation(input: PickOperationInput): Promise<PickOper
     options: filtered,
     maxItems: 12,
   });
-  if (isCancel(picked)) bail();
+  if (isCancel(picked)) bailNoRequest();
   const name = String(picked);
   return { name, field: fields[name] };
 }

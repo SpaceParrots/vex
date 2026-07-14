@@ -35,7 +35,7 @@ import { promptVariables } from "./prompt-variables.js";
 import { pickPreset } from "./pick-preset.js";
 import { pickFields } from "./pick-fields.js";
 import { maybeSaveFragment } from "./save-fragment.js";
-import { cancelAndExit } from "../prompt.js";
+import { bailNoRequest } from "../prompt.js";
 
 /** Inputs to {@link runWizard}. */
 export interface RunWizardInput {
@@ -55,11 +55,6 @@ export interface RunWizardInput {
   readonly saveAs?: string;
   /** Allow overwriting an existing saved operation with the same name. */
   readonly overwriteSaved?: boolean;
-}
-
-/** Reports the clack cancel prompt and exits the process (128 + SIGINT) — the wizard's cancel path. */
-function bail(): never {
-  cancelAndExit("Cancelled. No request sent.");
 }
 
 /**
@@ -204,7 +199,7 @@ async function selectionForType(
     message: "Paste a GraphQL selection set, e.g. `{ id firstName }`:",
     placeholder: "{ id firstName }",
   });
-  if (isCancel(raw)) bail();
+  if (isCancel(raw)) bailNoRequest();
   const synthName = `__Paste_${Date.now()}`;
   const fragSdl = `fragment ${synthName} on ${type.name} ${String(raw ?? "")}`;
   parse(fragSdl);
@@ -325,7 +320,7 @@ export async function runWizard(input: RunWizardInput): Promise<void> {
         message: "Save anyway?",
         initialValue: false,
       });
-      if (isCancel(ok)) bail();
+      if (isCancel(ok)) bailNoRequest();
       proceed = Boolean(ok);
     }
     if (proceed) {

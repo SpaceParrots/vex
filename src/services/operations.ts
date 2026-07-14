@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { parse, type DocumentNode, type OperationDefinitionNode } from "graphql";
 import { getOperationsDir } from "../config.js";
 import { SENSITIVE_VAR_NAME_RE } from "../constants.js";
+import { isRecord } from "../guards.js";
 
 let rootOverride: string | null = null;
 
@@ -233,29 +234,34 @@ export async function loadOperation(input: LoadOperationInput): Promise<SavedOpe
  *   contains a reserved key.
  */
 function assertSavedOperationShape(value: unknown, name: string): SavedOperation {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     throw new Error(`Saved operation "${name}" is malformed (expected an object).`);
   }
-  const v = value as Record<string, unknown>;
-  const expect = (key: string, want: string): void => {
-    if (typeof v[key] !== want) {
+  const str = (key: string): string => {
+    const raw = value[key];
+    if (typeof raw !== "string") {
       throw new Error(`Saved operation "${name}" is missing or has wrong type for "${key}".`);
     }
+    return raw;
   };
-  expect("name", "string");
-  expect("kind", "string");
-  expect("rootField", "string");
-  expect("document", "string");
-  expect("createdAt", "string");
-  expect("updatedAt", "string");
-  if (v.kind !== "query" && v.kind !== "mutation") {
-    throw new Error(`Saved operation "${name}" has invalid kind "${String(v.kind)}".`);
+  const kind = str("kind");
+  if (kind !== "query" && kind !== "mutation") {
+    throw new Error(`Saved operation "${name}" has invalid kind "${kind}".`);
   }
-  if (!v.variables || typeof v.variables !== "object" || Array.isArray(v.variables)) {
+  const variables = value.variables;
+  if (!isRecord(variables)) {
     throw new Error(`Saved operation "${name}" has invalid variables (expected an object).`);
   }
-  assertNoReservedKeys(v.variables as Record<string, unknown>, "saved variables");
-  return v as unknown as SavedOperation;
+  assertNoReservedKeys(variables, "saved variables");
+  return {
+    name: str("name"),
+    kind,
+    rootField: str("rootField"),
+    document: str("document"),
+    variables,
+    createdAt: str("createdAt"),
+    updatedAt: str("updatedAt"),
+  };
 }
 
 /** Input for {@link listOperations}. */
@@ -267,14 +273,15 @@ export interface ListOperationsInput {
 
 /**
  * Reads and parses a saved-operation JSON file into its {@link OperationMeta}
- * summary. Unlike {@link loadOperation}, a parse failure here yields `null`
- * (skipping the file) rather than throwing, so one corrupt record doesn't
- * break listing.
+ * summary. Unlike {@link loadOperation}, a corrupt record here yields `null`
+ * (skipping the file) rather than throwing, so one bad file doesn't break
+ * listing. The shape is validated, not assumed: a file that is valid JSON but
+ * not an operation would otherwise be listed with `undefined` name and kind.
  */
 async function readMeta(filePath: string): Promise<OperationMeta | null> {
   const raw = await readFile(filePath, "utf-8");
   try {
-    const rec = JSON.parse(raw) as SavedOperation;
+    const rec = assertSavedOperationShape(JSON.parse(raw), filePath);
     return {
       name: rec.name,
       kind: rec.kind,
