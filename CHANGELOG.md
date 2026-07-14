@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/SpaceParrots/vex/compare/v1.0.0...v1.1.0) (2026-07-14)
+
+
+### Features
+
+* UX overhaul — project-linked envs, mcp install, asset uploads, permission-aware errors ([#34](https://github.com/SpaceParrots/vex/issues/34)) ([0d910bd](https://github.com/SpaceParrots/vex/commit/0d910bd42cb343653c6a2d4406cde05aa7969a37))
+
 ## [1.0.0](https://github.com/SpaceParrots/vex/compare/v0.2.0...v1.0.0) (2026-06-24)
 
 
