@@ -24,7 +24,8 @@ import { registerSchemaIntrospectionTools } from "./tools/schema-introspection.j
 import { registerFragmentTools } from "./tools/fragments.js";
 import { registerOperationTools } from "./tools/operations.js";
 import { registerCurrentEnvTool } from "./tools/current-env.js";
-import { loadConfig } from "./config.js";
+import type { Environment } from "./config.js";
+import { getCurrentEnv } from "./context.js";
 import { loadSchema } from "./schema.js";
 import { VEX_TOOLS_ENV, VEX_TOOLS_LEAN_VALUES } from "./constants.js";
 
@@ -95,13 +96,33 @@ Mutations often return unions (\`Entity | ErrorResult\`) — branch on the respo
 `;
 
 /**
- * Registers the cached GraphQL SDL as a readable MCP resource
- * at `vendure://schema/{envName}`.
+ * The slice of `McpServer` needed to register the schema resource. Declared
+ * narrowly so the registration logic can be exercised without standing up a
+ * real MCP server over stdio.
+ */
+export interface SchemaResourceHost {
+  resource(
+    name: string,
+    uri: string,
+    metadata: { description: string; mimeType: string },
+    handler: () => Promise<{
+      contents: { uri: string; text: string; mimeType: string }[];
+    }>
+  ): void;
+}
+
+/**
+ * Registers the cached GraphQL SDL as a readable MCP resource at
+ * `vendure://schema/{envName}`.
+ *
+ * The SDL is re-read from the cache on every request rather than captured at
+ * registration time, so a `vex_refetch_schema` call is visible to the next
+ * read without restarting the server.
  */
 function registerSchemaResource(
-  server: McpServer,
+  server: SchemaResourceHost,
   envName: string,
-  sdl: string
+  env: Environment
 ): void {
   server.resource(
     `vendure-schema-${envName}`,
@@ -114,12 +135,44 @@ function registerSchemaResource(
       contents: [
         {
           uri: `vendure://schema/${envName}`,
-          text: sdl,
+          text: await loadSchema(env, envName),
           mimeType: "text/plain",
         },
       ],
     })
   );
+}
+
+/**
+ * Exposes the schema of the environment the tools will actually target, using
+ * the same resolution they use (`env` override > `VEX_ENV` > project link >
+ * active environment) — deliberately *not* the globally active environment.
+ *
+ * `vex mcp install` pins `VEX_ENV` in `.mcp.json`, so resolving to the active
+ * environment here would advertise one store's schema as ground truth while
+ * every tool call hit another.
+ *
+ * A missing environment or an uncached schema is not an error: the resource is
+ * simply not advertised, and the user can populate it with `vex_refetch_schema`.
+ */
+export async function registerCurrentSchemaResource(
+  server: SchemaResourceHost
+): Promise<void> {
+  let envName: string;
+  let env: Environment;
+  try {
+    ({ name: envName, env } = await getCurrentEnv());
+  } catch {
+    return; // No environment resolvable yet — normal on first run.
+  }
+  try {
+    // Probe the cache so the resource is only advertised when the schema is
+    // actually readable. The handler re-reads it on every request.
+    await loadSchema(env, envName);
+  } catch {
+    return; // Schema not fetched yet.
+  }
+  registerSchemaResource(server, envName, env);
 }
 
 /** Returns true when `VEX_TOOLS` selects the minimal ("lean") tool surface. */
@@ -175,25 +228,7 @@ export async function startMcpServer(): Promise<void> {
   const lean = isLeanMode();
   registerTools(server, lean);
 
-  // Try to load schema on startup and expose it as a resource.
-  // Failures are expected on first run or when no environment is configured.
-  try {
-    const config = await loadConfig();
-    const envName = config.activeEnvironment;
-    const env = config.environments[envName];
-    if (env) {
-      try {
-        const sdl = await loadSchema(env, envName);
-        if (sdl) {
-          registerSchemaResource(server, envName, sdl);
-        }
-      } catch {
-        // Schema not available yet — the user can fetch it later via vex_refetch_schema
-      }
-    }
-  } catch {
-    // No config yet — normal on first run
-  }
+  await registerCurrentSchemaResource(server);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
