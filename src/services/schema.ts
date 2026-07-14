@@ -7,8 +7,9 @@
 
 import { parse, type DefinitionNode } from "graphql";
 import { loadConfig, envNotFoundMessage } from "../config.js";
-import { getCurrentEnv } from "../env-context.js";
-import { refetchSchema } from "../schema.js";
+import { getCurrentEnv } from "../context.js";
+import { loadSchema, refetchSchema } from "../schema.js";
+import { parsePermissions, type PermissionInfo } from "../schema-model/permissions.js";
 
 /** Result returned after fetching and analyzing a schema. */
 export interface SchemaFetchResult {
@@ -69,4 +70,14 @@ function countFieldsForType(definitions: readonly DefinitionNode[], typeName: st
     return typeDef.fields?.length ?? 0;
   }
   return 0;
+}
+
+/**
+ * Lists all `Permission` enum values (including custom plugin permissions)
+ * from the current environment's schema, loading/caching it if needed.
+ */
+export async function listPermissionsForCurrentEnv(): Promise<readonly PermissionInfo[]> {
+  const ctx = await getCurrentEnv();
+  const sdl = await loadSchema(ctx.env, ctx.name);
+  return parsePermissions(sdl);
 }

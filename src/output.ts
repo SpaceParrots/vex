@@ -1,3 +1,5 @@
+import { VexError } from "./errors.js";
+
 /**
  * When set to "1", MCP responses are pretty-printed with 2-space indent.
  * Default is compact (no indent) to save tokens — typical MCP sessions burn
@@ -5,6 +7,7 @@
  */
 const PRETTY_MCP = process.env.VEX_PRETTY_JSON === "1";
 
+/** Serializes `data` to JSON, honoring {@link PRETTY_MCP} for indentation. */
 function mcpStringify(data: unknown): string {
   return PRETTY_MCP ? JSON.stringify(data, null, 2) : JSON.stringify(data);
 }
@@ -90,12 +93,18 @@ export function printTable(
 }
 
 /**
- * Prints an error message and terminates the process.
+ * Prints an error message (and, for {@link VexError}s, the indented hint)
+ * to stderr and terminates the process.
  *
  * @param err - The error to display. Extracts `.message` from Error instances.
  */
 export function handleError(err: unknown): never {
   const message = err instanceof Error ? err.message : String(err);
   printError(message);
+  if (err instanceof VexError && err.hint) {
+    for (const line of err.hint.split("\n")) {
+      console.error(`    ${line}`);
+    }
+  }
   process.exit(1);
 }

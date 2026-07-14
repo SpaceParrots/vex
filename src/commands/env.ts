@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import { writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
+import { select } from "@clack/prompts";
 import {
   addEnvironment,
   removeEnvironment,
@@ -12,10 +13,14 @@ import {
   showEnvironment,
   statusEnvironment,
   currentEnvLine,
+  linkProjectPath,
+  unlinkProjectPath,
 } from "../services/env.js";
 import { getSchemaPath } from "../config.js";
-import { runEnvAddWizard } from "../wizard/envAdd.js";
+import { runEnvAddWizard } from "../wizard/env-add.js";
 import { printJson, printSuccess, printInfo, printTable, handleError } from "../output.js";
+import { VexError } from "../errors.js";
+import { unwrapCancel } from "../prompt.js";
 
 /** Creates the `vex env` command group with add, list, switch, remove, set, and show subcommands. */
 export function createEnvCommand(): Command {
@@ -100,15 +105,20 @@ Examples:
     .description("List all environments")
     .action(async () => {
       try {
-        const { active, environments } = await listEnvironments();
+        const { active, environments, projects } = await listEnvironments();
         const entries = Object.entries(environments);
         if (entries.length === 0) {
           printInfo("No environments configured. Use `vex env add` to create one.");
           return;
         }
+        const projectsFor = (name: string): string =>
+          Object.entries(projects)
+            .filter(([, envName]) => envName === name)
+            .map(([p]) => p)
+            .join(", ");
         printTable(
-          ["Name", "URL", "Active"],
-          entries.map(([n, e]) => [n, e.url, n === active ? "yes" : ""])
+          ["Name", "URL", "Active", "Projects"],
+          entries.map(([n, e]) => [n, e.url, n === active ? "yes" : "", projectsFor(n)])
         );
       } catch (err) {
         handleError(err);
@@ -198,10 +208,53 @@ Examples:
 
   env
     .command("current")
-    .description("Show which environment is currently in use (env param > VEX_ENV > active)")
+    .description("Show which environment is currently in use (env param > VEX_ENV > project link > active)")
     .action(async () => {
       try {
         printInfo(await currentEnvLine());
+      } catch (err) {
+        handleError(err);
+      }
+    });
+
+  env
+    .command("link [envName] [path]")
+    .description("Link a project directory to an environment (defaults to the current directory)")
+    .action(async (envName: string | undefined, path: string | undefined) => {
+      try {
+        let resolvedName = envName;
+        if (!resolvedName) {
+          if (process.stdin.isTTY !== true) {
+            throw new VexError("Missing environment name.", {
+              hint: "Usage: vex env link <envName> [path]",
+            });
+          }
+          const { active, environments } = await listEnvironments();
+          const names = Object.keys(environments);
+          if (names.length === 0) {
+            throw new VexError("No environments configured.", { hint: "Run `vex env add` first." });
+          }
+          const picked = await select({
+            message: "Link this directory to which environment?",
+            options: names.map((n) => ({ value: n, label: n === active ? `${n} (active)` : n })),
+            initialValue: names.includes(active) ? active : names[0],
+          });
+          resolvedName = unwrapCancel(picked, "Cancelled.");
+        }
+        const result = await linkProjectPath({ envName: resolvedName, path });
+        printSuccess(`Linked ${result.path} → "${result.envName}". vex now auto-selects it inside that directory.`);
+      } catch (err) {
+        handleError(err);
+      }
+    });
+
+  env
+    .command("unlink [path]")
+    .description("Remove the project link for a directory (defaults to the current directory)")
+    .action(async (path: string | undefined) => {
+      try {
+        const result = await unlinkProjectPath(path);
+        printSuccess(`Unlinked ${result.path}.`);
       } catch (err) {
         handleError(err);
       }

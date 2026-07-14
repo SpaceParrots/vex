@@ -10,6 +10,7 @@ import {
   listEnvironments,
   showEnvironment,
 } from "../services/env.js";
+import { toolErrorResult } from "./action-tool.js";
 
 const SetupInputSchema = z.object({
   action: z.enum(["add", "remove", "list", "switch", "show", "set"]).describe(
@@ -35,80 +36,84 @@ const SetupInputSchema = z.object({
 export function registerSetupTool(server: McpServer): void {
   server.tool(
     "vex_setup",
-    "Manage Vendure API environments. Add, remove, list, switch between, show, or set (update) environment configurations.",
+    "Manage Vendure API environments: add, remove, list, switch, show, or set (update).",
     SetupInputSchema.shape,
     async (input) => {
-      switch (input.action) {
-        case "add": {
-          if (!input.name) throw new Error("'name' is required for add action.");
-          if (!input.url) throw new Error("'url' is required for add action.");
-          if (!input.apiKey) throw new Error("'apiKey' is required for add action.");
+      try {
+        switch (input.action) {
+          case "add": {
+            if (!input.name) throw new Error("'name' is required for add action.");
+            if (!input.url) throw new Error("'url' is required for add action.");
+            if (!input.apiKey) throw new Error("'apiKey' is required for add action.");
 
-          const result = await addEnvironment({
-            name: input.name,
-            url: input.url,
-            apiKey: input.apiKey,
-            schemaType: input.schemaType,
-            schemaValue: input.schemaValue,
-            fetchSchema: input.fetchSchema,
-          });
+            const result = await addEnvironment({
+              name: input.name,
+              url: input.url,
+              apiKey: input.apiKey,
+              schemaType: input.schemaType,
+              schemaValue: input.schemaValue,
+              fetchSchema: input.fetchSchema,
+            });
 
-          let text = `Environment "${result.name}" added.`;
-          if (result.isActive) text += " Set as active.";
-          if (result.schemaFetched) text += " Schema fetched and cached.";
-          if (result.schemaError) text += ` Schema fetch failed: ${result.schemaError}`;
+            let text = `Environment "${result.name}" added.`;
+            if (result.isActive) text += " Set as active.";
+            if (result.schemaFetched) text += " Schema fetched and cached.";
+            if (result.schemaError) text += ` Schema fetch failed: ${result.schemaError}`;
 
-          return { content: [{ type: "text" as const, text }] };
-        }
+            return { content: [{ type: "text" as const, text }] };
+          }
 
-        case "remove": {
-          if (!input.name) throw new Error("'name' is required for remove action.");
-          await removeEnvironment(input.name);
-          return {
-            content: [{ type: "text" as const, text: `Environment "${input.name}" removed.` }],
-          };
-        }
-
-        case "list": {
-          const { active, environments } = await listEnvironments();
-          if (Object.keys(environments).length === 0) {
+          case "remove": {
+            if (!input.name) throw new Error("'name' is required for remove action.");
+            await removeEnvironment(input.name);
             return {
-              content: [{ type: "text" as const, text: "No environments configured. Use action 'add' to create one." }],
+              content: [{ type: "text" as const, text: `Environment "${input.name}" removed.` }],
             };
           }
-          const lines = Object.entries(environments).map(
-            ([n, e]) => `${n === active ? "[active] " : ""}${n}: ${e.url}`
-          );
-          return { content: [{ type: "text" as const, text: lines.join("\n") }] };
-        }
 
-        case "switch": {
-          if (!input.name) throw new Error("'name' is required for switch action.");
-          await switchEnvironment(input.name);
-          return {
-            content: [{ type: "text" as const, text: `Switched active environment to "${input.name}".` }],
-          };
-        }
+          case "list": {
+            const { active, environments } = await listEnvironments();
+            if (Object.keys(environments).length === 0) {
+              return {
+                content: [{ type: "text" as const, text: "No environments configured. Use action 'add' to create one." }],
+              };
+            }
+            const lines = Object.entries(environments).map(
+              ([n, e]) => `${n === active ? "[active] " : ""}${n}: ${e.url}`
+            );
+            return { content: [{ type: "text" as const, text: lines.join("\n") }] };
+          }
 
-        case "show": {
-          const info = await showEnvironment(input.name);
-          return {
-            content: [{ type: "text" as const, text: JSON.stringify(info, null, 2) }],
-          };
-        }
+          case "switch": {
+            if (!input.name) throw new Error("'name' is required for switch action.");
+            await switchEnvironment(input.name);
+            return {
+              content: [{ type: "text" as const, text: `Switched active environment to "${input.name}".` }],
+            };
+          }
 
-        case "set": {
-          const result = await updateEnvironment({
-            name: input.name,
-            url: input.url,
-            apiKey: input.apiKey,
-            schemaType: input.schemaType,
-            schemaValue: input.schemaValue,
-          });
-          return {
-            content: [{ type: "text" as const, text: `Environment "${result.name}" updated: ${result.updated.join(", ")}.` }],
-          };
+          case "show": {
+            const info = await showEnvironment(input.name);
+            return {
+              content: [{ type: "text" as const, text: JSON.stringify(info, null, 2) }],
+            };
+          }
+
+          case "set": {
+            const result = await updateEnvironment({
+              name: input.name,
+              url: input.url,
+              apiKey: input.apiKey,
+              schemaType: input.schemaType,
+              schemaValue: input.schemaValue,
+            });
+            return {
+              content: [{ type: "text" as const, text: `Environment "${result.name}" updated: ${result.updated.join(", ")}.` }],
+            };
+          }
         }
+      } catch (err) {
+        return toolErrorResult(err);
       }
     }
   );

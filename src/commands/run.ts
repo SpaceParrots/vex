@@ -1,7 +1,7 @@
 /** @module commands/run — CLI command for executing a saved GraphQL operation by name. */
 
 import { Command } from "commander";
-import { getCurrentEnv } from "../env-context.js";
+import { getCurrentEnv } from "../context.js";
 import { getClient } from "../client.js";
 import {
   loadOperation,
@@ -17,10 +17,17 @@ interface RunOpts {
   verbose?: boolean;
 }
 
+/** Commander option-accumulator: collects repeated `--var` flags into an array. */
 function collectVar(value: string, previous: string[] = []): string[] {
   return [...previous, value];
 }
 
+/**
+ * Creates the `vex run <name>` command: replays a saved GraphQL operation
+ * (see `vex operation list`), optionally overriding its default variables via
+ * `--vars-json` (whole-object replace, applied first) and/or repeatable
+ * `--var key=value` (per-key override, applied after).
+ */
 export function createRunCommand(): Command {
   return new Command("run")
     .description("Execute a saved GraphQL operation by name (use `vex operation list` to discover names)")

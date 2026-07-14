@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { dispatchAction, type ActionMap } from "../../src/tools/action-tool.js";
+import { PermissionError } from "../../src/errors.js";
 
 /** A small two-action map: `greet` (required `name`) and `count` (optional `n`). */
 function makeActions(calls: string[]): ActionMap {
@@ -84,5 +85,40 @@ describe("dispatchAction", () => {
     const res = await dispatchAction(makeActions(calls), {});
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toMatch(/Unknown action/);
+  });
+});
+
+describe("dispatchAction error presentation", () => {
+  it("converts a thrown VexError into an isError result with the hint", async () => {
+    const actions = {
+      boom: {
+        summary: "always throws",
+        shape: {},
+        handler: async () => {
+          throw new PermissionError("Permission denied for `createProduct` on env \"dev\".", {
+            hint: "Run `vex schema permissions`.",
+          });
+        },
+      },
+    };
+    const result = await dispatchAction(actions, { action: "boom" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("Permission denied");
+    expect(result.content[0].text).toContain("Hint: Run `vex schema permissions`.");
+  });
+
+  it("normalizes non-Vex throws via toVexError", async () => {
+    const actions = {
+      boom: {
+        summary: "throws plain",
+        shape: {},
+        handler: async () => {
+          throw new Error("plain failure");
+        },
+      },
+    };
+    const result = await dispatchAction(actions, { action: "boom" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toBe("plain failure");
   });
 });

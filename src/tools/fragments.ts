@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getCurrentEnv } from "../env-context.js";
+import { getCurrentEnv } from "../context.js";
 import { loadSchema } from "../schema.js";
 import { parseSchemaFromSdl } from "../schema-model/parse.js";
 import { jsonContent } from "../output.js";
@@ -14,6 +14,7 @@ import {
   deleteFragment,
 } from "../services/fragments.js";
 
+/** Resolves the current environment and parses its cached schema for fragment operations. */
 async function loadCtx() {
   const { name, env } = await getCurrentEnv();
   const sdl = await loadSchema(env, name);
@@ -22,7 +23,7 @@ async function loadCtx() {
 
 /** Registers the `vex_fragments` MCP tool covering saved-fragment operations. */
 export function registerFragmentTools(server: McpServer): void {
-  actionTool(server, "vex_fragments", "Manage reusable GraphQL fragments (named selection sets) for the active environment.", {
+  actionTool(server, "vex_fragments", "Manage reusable GraphQL fragments (named selection sets).", {
     list: {
       summary: "List saved fragments, optionally filtered by on-clause type.",
       shape: {

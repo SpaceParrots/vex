@@ -8,13 +8,15 @@
 import { readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
+import { resolve } from "node:path";
 import { buildSchema } from "graphql";
 import {
   addEnv as addEnvConfig,
   removeEnv as removeEnvConfig,
   switchEnv as switchEnvConfig,
   updateEnv as updateEnvConfig,
-  listEnvs as listEnvsConfig,
+  linkProject,
+  unlinkProject,
   loadConfig,
   getSchemaPath,
   envNotFoundMessage,
@@ -24,8 +26,10 @@ import {
 import { refetchSchema } from "../schema.js";
 import { createClient } from "../client.js";
 import { API_KEY_MASK_LENGTH, API_KEY_MASK_SUFFIX } from "../constants.js";
-import { getCurrentEnv, NoEnvironmentError } from "../env-context.js";
+import { getCurrentEnv, type EnvSource } from "../context.js";
+import { NoEnvironmentError, EnvNotFoundError, VexError, isErrnoException } from "../errors.js";
 
+/** The shape of a `graphql-request` `ClientError`'s `.response`. */
 interface GraphQLRequestError {
   readonly response: {
     readonly status: number;
@@ -33,6 +37,7 @@ interface GraphQLRequestError {
   };
 }
 
+/** Type guard: does `value` look like a `graphql-request` error with a `.response.status`? */
 function hasGraphQLResponse(value: unknown): value is GraphQLRequestError {
   if (!value || typeof value !== "object") return false;
   const response = (value as { response?: unknown }).response;
@@ -42,8 +47,8 @@ function hasGraphQLResponse(value: unknown): value is GraphQLRequestError {
 
 /**
  * Returns the underlying `graphql-request` `ClientError`-shaped object if the
- * thrown error exposes one. `createClient()` wraps the raw client error via
- * `compactGraphQLError`, preserving the original on `.cause`, so we walk that
+ * thrown error exposes one. `createClient()` normalizes raw client errors via
+ * `toVexError`, preserving the original on `.cause`, so we walk that
  * chain (with a small bound) before giving up.
  */
 function findGraphQLRequestError(err: unknown): GraphQLRequestError | null {
@@ -55,16 +60,18 @@ function findGraphQLRequestError(err: unknown): GraphQLRequestError | null {
   return null;
 }
 
-function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
-  return err instanceof Error && "code" in err;
-}
-
-function tildeify(p: string): string {
+/** Rewrites an absolute path under the user's home directory to start with `~`, for display. */
+export function tildeify(p: string): string {
   const home = homedir();
   if (home && p.startsWith(home)) {
     return "~" + p.slice(home.length);
   }
   return p;
+}
+
+/** Masks an API key for display: first {@link API_KEY_MASK_LENGTH} chars + a fixed suffix. */
+export function maskApiKey(apiKey: string): string {
+  return apiKey.slice(0, API_KEY_MASK_LENGTH) + API_KEY_MASK_SUFFIX;
 }
 
 /** Input for adding a new Vendure environment. */
@@ -152,13 +159,15 @@ export async function updateEnvironment(input: UpdateEnvInput): Promise<UpdateEn
   }
 
   if (updated.length === 0) {
-    throw new Error("No fields to update. Provide at least one of: --url, --api-key, --schema-type.");
+    throw new VexError("No fields to update.", {
+      hint: "Provide at least one of: --url, --api-key, --schema-type.",
+    });
   }
 
   const config = await loadConfig();
   const targetName = input.name ?? config.activeEnvironment;
   if (!targetName) {
-    throw new Error(noEnvironmentMessage(config.environments));
+    throw new NoEnvironmentError(noEnvironmentMessage(config.environments));
   }
 
   await updateEnvConfig(targetName, fields);
@@ -175,15 +184,44 @@ export async function switchEnvironment(name: string): Promise<void> {
   await switchEnvConfig(name);
 }
 
-/** Result containing all environments and the active one. */
+/** Result containing all environments, the active one, and project links. */
 export interface EnvListResult {
   readonly active: string;
   readonly environments: Readonly<Record<string, Environment>>;
+  readonly projects: Readonly<Record<string, string>>;
 }
 
-/** Lists all configured environments. */
+/** Lists all configured environments and project links. */
 export async function listEnvironments(): Promise<EnvListResult> {
-  return listEnvsConfig();
+  const config = await loadConfig();
+  return {
+    active: config.activeEnvironment,
+    environments: config.environments,
+    projects: config.projects ?? {},
+  };
+}
+
+/** Input for linking a project directory to an environment. */
+export interface LinkProjectInput {
+  readonly envName: string;
+  /** Directory to link; defaults to the current working directory. */
+  readonly path?: string;
+}
+
+/** Links a project directory to an environment (defaults to cwd). */
+export async function linkProjectPath(
+  input: LinkProjectInput
+): Promise<{ readonly envName: string; readonly path: string }> {
+  const path = resolve(input.path ?? process.cwd());
+  await linkProject(path, input.envName);
+  return { envName: input.envName, path };
+}
+
+/** Removes the project link for a directory (defaults to cwd). */
+export async function unlinkProjectPath(path?: string): Promise<{ readonly path: string }> {
+  const target = resolve(path ?? process.cwd());
+  await unlinkProject(target);
+  return { path: target };
 }
 
 /** Detailed view of a single environment with a masked API key. */
@@ -211,7 +249,7 @@ export interface EnvStatusResult {
 }
 
 /** Posts a trivial GraphQL query to confirm the endpoint is reachable and accepting the API key. */
-async function checkEndpoint(env: Environment): Promise<EnvCheck> {
+export async function checkEndpoint(env: Environment): Promise<EnvCheck> {
   const client = createClient(env);
   try {
     await client.request<{ __typename: string }>("{ __typename }");
@@ -275,11 +313,11 @@ export async function statusEnvironment(name?: string): Promise<EnvStatusResult>
   const config = await loadConfig();
   const targetName = name ?? config.activeEnvironment;
   if (!targetName) {
-    throw new Error(noEnvironmentMessage(config.environments));
+    throw new NoEnvironmentError(noEnvironmentMessage(config.environments));
   }
   const env = config.environments[targetName];
   if (!env) {
-    throw new Error(envNotFoundMessage(targetName, config.environments));
+    throw new EnvNotFoundError(envNotFoundMessage(targetName, config.environments));
   }
 
   const [endpoint, schema] = await Promise.all([
@@ -301,33 +339,40 @@ export async function showEnvironment(name?: string): Promise<EnvShowResult> {
   const config = await loadConfig();
   const targetName = name ?? config.activeEnvironment;
   if (!targetName) {
-    throw new Error(noEnvironmentMessage(config.environments));
+    throw new NoEnvironmentError(noEnvironmentMessage(config.environments));
   }
   const env = config.environments[targetName];
   if (!env) {
-    throw new Error(envNotFoundMessage(targetName, config.environments));
+    throw new EnvNotFoundError(envNotFoundMessage(targetName, config.environments));
   }
   return {
     name: targetName,
     active: config.activeEnvironment === targetName,
     url: env.url,
-    apiKeyMasked: env.apiKey.slice(0, API_KEY_MASK_LENGTH) + API_KEY_MASK_SUFFIX,
+    apiKeyMasked: maskApiKey(env.apiKey),
     schemaSource: env.schemaSource,
   };
 }
 
+/** Structured view of the environment currently in use. */
+export interface CurrentEnvInfo {
+  readonly name: string;
+  readonly host: string;
+  readonly source: EnvSource;
+  readonly projectPath?: string;
+}
+
 /**
- * Returns a single compact line describing the environment currently in use:
- * `name → host (via VEX_ENV | via active)`, or `none configured` when nothing
- * resolves. Never includes the API key.
+ * Resolves the environment currently in use and returns structured info
+ * (never the API key). Returns `null` when nothing is configured.
  */
-export async function currentEnvLine(): Promise<string> {
+export async function currentEnvInfo(): Promise<CurrentEnvInfo | null> {
   let resolved;
   try {
     resolved = await getCurrentEnv();
   } catch (err) {
-    if (err instanceof NoEnvironmentError) return "none configured";
-    return err instanceof Error ? err.message : "none configured";
+    if (err instanceof NoEnvironmentError) return null;
+    throw err;
   }
   let host: string;
   try {
@@ -335,11 +380,29 @@ export async function currentEnvLine(): Promise<string> {
   } catch {
     host = resolved.env.url;
   }
+  return {
+    name: resolved.name,
+    host,
+    source: resolved.source,
+    ...(resolved.projectPath !== undefined ? { projectPath: resolved.projectPath } : {}),
+  };
+}
+
+/**
+ * Returns a single compact line describing the environment currently in use:
+ * `name → host (via …)`, or `none configured` when nothing
+ * resolves. Never includes the API key.
+ */
+export async function currentEnvLine(): Promise<string> {
+  const info = await currentEnvInfo();
+  if (!info) return "none configured";
   const via =
-    resolved.source === "param"
+    info.source === "param"
       ? "via env param"
-      : resolved.source === "VEX_ENV"
+      : info.source === "VEX_ENV"
         ? "via VEX_ENV"
-        : "via active";
-  return `${resolved.name} → ${host} (${via})`;
+        : info.source === "project"
+          ? `via project link ${info.projectPath ?? ""}`.trim()
+          : "via active";
+  return `${info.name} → ${info.host} (${via})`;
 }

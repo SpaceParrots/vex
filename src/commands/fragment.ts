@@ -1,7 +1,7 @@
 /** @module commands/fragment — CLI subcommands for managing saved GraphQL fragments. */
 
 import { Command } from "commander";
-import { getCurrentEnv } from "../env-context.js";
+import { getCurrentEnv } from "../context.js";
 import {
   listFragments,
   getFragmentSdl,
@@ -9,6 +9,7 @@ import {
 } from "../services/fragments.js";
 import { printTable, printInfo, printSuccess, handleError } from "../output.js";
 
+/** Creates the `vex fragment` command group: `list`, `show`, and `delete` for saved GraphQL fragments. */
 export function createFragmentCommand(): Command {
   const cmd = new Command("fragment").description("Manage saved GraphQL fragments");
 

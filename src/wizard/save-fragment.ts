@@ -1,25 +1,34 @@
 /**
- * @module wizard/saveFragment
+ * @module wizard/save-fragment
  *
  * Step 4 of the wizard (post-Customize). Optionally persists the built
  * Selection as a fragment file.
  */
 
-import { confirm, text, isCancel, cancel } from "@clack/prompts";
+import { confirm, text, isCancel } from "@clack/prompts";
 import type { GraphQLSchema } from "graphql";
 import { renderDocument } from "../schema-model/render.js";
 import type { Selection } from "../schema-model/types.js";
 import { saveFragment } from "../services/fragments.js";
+import { bailNoRequest } from "../prompt.js";
 
 const NAME_RE = /^[A-Za-z][A-Za-z0-9]*$/;
 
+/** Inputs to {@link maybeSaveFragment}. */
 export interface MaybeSaveFragmentInput {
   readonly envName: string;
+  /** The GraphQL type the fragment will be declared `on`. */
   readonly typeName: string;
+  /** The selection set to persist. */
   readonly selection: Selection;
   readonly schema: GraphQLSchema;
 }
 
+/**
+ * Renders `selection` as a standalone fragment definition SDL string, by
+ * rendering it as the body of a synthetic `_synth` query field and
+ * extracting just the inner selection-set text out of that document.
+ */
 function buildFragmentSdl(name: string, onType: string, selection: Selection): string {
   // Render a synthetic operation, then extract just the inner selection-set body
   // to wrap as a fragment definition. The synthetic root field is `_synth`; its
@@ -37,17 +46,20 @@ function buildFragmentSdl(name: string, onType: string, selection: Selection): s
   return `fragment ${name} on ${onType} {\n  ${body.replace(/\n/g, "\n  ")}\n}\n`;
 }
 
-function bail(): never {
-  cancel("Cancelled. No request sent.");
-  process.exit(130);
-}
-
+/**
+ * Offers to save `input.selection` as a reusable fragment. If confirmed,
+ * prompts for a CamelCase name (re-prompting until valid), builds the SDL
+ * via {@link buildFragmentSdl}, and saves it. If a fragment with that name
+ * already exists, offers to overwrite it. Cancelling any prompt
+ * {@link bail}s (exits the process); declining to save or to overwrite
+ * simply returns without error.
+ */
 export async function maybeSaveFragment(input: MaybeSaveFragmentInput): Promise<void> {
   const yes = await confirm({
     message: "Save this selection as a fragment?",
     initialValue: false,
   });
-  if (isCancel(yes)) bail();
+  if (isCancel(yes)) bailNoRequest();
   if (!yes) return;
 
   let name = "";
@@ -57,7 +69,7 @@ export async function maybeSaveFragment(input: MaybeSaveFragmentInput): Promise<
       placeholder: `${input.typeName}Custom`,
       defaultValue: `${input.typeName}Custom`,
     });
-    if (isCancel(raw)) bail();
+    if (isCancel(raw)) bailNoRequest();
     name = String(raw ?? "");
     if (NAME_RE.test(name)) break;
     console.error(`Invalid name "${name}". Use CamelCase letters/digits, starting with a letter.`);

@@ -20,8 +20,8 @@ export function registerOrderTools(server: McpServer): void {
     list: {
       summary: "List orders with optional code filter.",
       shape: {
-        take: z.number().optional().describe("Number of results to return"),
-        skip: z.number().optional().describe("Number of results to skip"),
+        take: z.number().optional().describe("Items per page (default 20)."),
+        skip: z.number().optional().describe("Items to skip (default 0)."),
         filterByCode: z.string().optional().describe("Filter by order code (contains)"),
       },
       handler: async (a) => jsonContent(await listOrders(a as Parameters<typeof listOrders>[0])),

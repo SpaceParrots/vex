@@ -1,30 +1,37 @@
-/** @module tools/mutate — MCP tool for executing arbitrary GraphQL mutations. */
+/** @module tools/mutate — MCP tool for executing arbitrary GraphQL mutations (incl. Upload files). */
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { executeMutation } from "../services/query.js";
+import { executeMutation, executeMutationWithFiles } from "../services/query.js";
 import { jsonContent } from "../output.js";
 import { envAwareTool } from "./env-aware.js";
+import { toolErrorResult } from "./action-tool.js";
 
 /** Registers the `vex_mutate` MCP tool with error-aware response handling. */
 export function registerMutateTool(server: McpServer): void {
-  envAwareTool(server,
+  envAwareTool(
+    server,
     "vex_mutate",
-    "Execute a GraphQL mutation against the active Vendure Admin API environment.",
+    "Execute a raw GraphQL mutation. Supports Upload-scalar file uploads via `files`.",
     {
       mutation: z.string().describe("GraphQL mutation string"),
       variables: z.record(z.unknown()).optional().describe("Variables for the GraphQL mutation"),
+      files: z
+        .record(z.string())
+        .optional()
+        .describe(
+          'For Upload-scalar variables: map of dotted variable path to local file path, e.g. {"input.0.file": "./logo.png"}.'
+        ),
     },
     async (input) => {
       try {
-        const data = await executeMutation(input.mutation, input.variables);
+        const data =
+          input.files && Object.keys(input.files).length > 0
+            ? await executeMutationWithFiles(input.mutation, input.variables, input.files as Record<string, string>)
+            : await executeMutation(input.mutation, input.variables);
         return jsonContent(data);
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : JSON.stringify(err);
-        return {
-          content: [{ type: "text" as const, text: `GraphQL error: ${message}` }],
-          isError: true,
-        };
+        return toolErrorResult(err);
       }
     }
   );

@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getCurrentEnv } from "../env-context.js";
+import { getCurrentEnv } from "../context.js";
 import { getClient } from "../client.js";
 import { jsonContent } from "../output.js";
 import { actionTool } from "./action-tool.js";
@@ -18,7 +18,7 @@ export function registerOperationTools(server: McpServer): void {
   actionTool(
     server,
     "vex_operations",
-    "Manage saved (replayable) GraphQL operations: queries or mutations persisted with their default variables. Distinct from vex_schema's list_operations, which lists operations available on the schema.",
+    "Manage saved (replayable) GraphQL operations: queries or mutations persisted with default variables. (Distinct from vex_schema's list_operations, which lists schema-defined operations.)",
     {
       list: {
         summary: "List saved operations, optionally filtered by kind or root field.",

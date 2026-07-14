@@ -1,10 +1,11 @@
-/** @module tools/schemaIntrospection — `vex_schema` action-dispatch MCP tool for slice-based schema discovery. */
+/** @module tools/schema-introspection — `vex_schema` action-dispatch MCP tool for slice-based schema discovery. */
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getCurrentEnv } from "../env-context.js";
+import { getCurrentEnv } from "../context.js";
 import { loadSchema } from "../schema.js";
 import { parseSchemaFromSdl } from "../schema-model/parse.js";
+import { parsePermissions } from "../schema-model/permissions.js";
 import { jsonContent } from "../output.js";
 import { actionTool } from "./action-tool.js";
 import {
@@ -14,6 +15,7 @@ import {
   describeOperation,
 } from "../services/schema-introspect.js";
 
+/** Resolves the current environment and loads its cached schema, parsed for introspection queries. */
 async function loadParsedSchema() {
   const { name, env } = await getCurrentEnv();
   const sdl = await loadSchema(env, name);
@@ -24,7 +26,7 @@ async function loadParsedSchema() {
 export function registerSchemaIntrospectionTools(server: McpServer): void {
   actionTool(server, "vex_schema", "Discover the Vendure Admin GraphQL schema (types, operations, custom fields).", {
     describe_type: {
-      summary: "Return SDL for a type plus SDL for every type it references (depth 1 or 2). Skips built-in scalars.",
+      summary: "Return SDL for a type and its referenced types (depth 1 or 2); skips built-in scalars.",
       shape: {
         typeName: z.string().describe("Name of the GraphQL type to describe (e.g. 'Customer')."),
         depth: z.union([z.literal(1), z.literal(2)]).optional().describe("Depth of referenced-type expansion. Default 1, max 2."),
@@ -36,7 +38,7 @@ export function registerSchemaIntrospectionTools(server: McpServer): void {
       },
     },
     list_custom_fields: {
-      summary: "List the custom fields configured on a Vendure entity. Returns null when it has no typed customFields block.",
+      summary: "List an entity's custom fields; null if it has no typed customFields block.",
       shape: {
         typeName: z.string().describe("Entity type name (e.g. 'Customer', 'Product', 'Order')."),
       },
@@ -46,7 +48,7 @@ export function registerSchemaIntrospectionTools(server: McpServer): void {
       },
     },
     list_operations: {
-      summary: "List available top-level queries and mutations, optionally filtered by kind and substring.",
+      summary: "List top-level queries/mutations, optionally filtered by kind and substring.",
       shape: {
         kind: z.enum(["query", "mutation"]).optional().describe("Filter by operation kind."),
         search: z.string().optional().describe("Case-insensitive substring filter on the operation name."),
@@ -62,13 +64,22 @@ export function registerSchemaIntrospectionTools(server: McpServer): void {
       },
     },
     describe_operation: {
-      summary: "Return the SDL signature of one operation, plus SDL for its arg input types and return type.",
+      summary: "Return an operation's SDL signature plus SDL for its arg and return types.",
       shape: {
         name: z.string().describe("Operation (root field) name (e.g. 'customers', 'createCustomer')."),
       },
       handler: async (a) => {
         const schema = await loadParsedSchema();
         return { content: [{ type: "text" as const, text: describeOperation(schema, a.name as string) }] };
+      },
+    },
+    list_permissions: {
+      summary: "List Permission enum values (incl. custom plugin permissions) with descriptions.",
+      shape: {},
+      handler: async () => {
+        const { name, env } = await getCurrentEnv();
+        const sdl = await loadSchema(env, name);
+        return jsonContent(parsePermissions(sdl));
       },
     },
   });

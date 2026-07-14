@@ -8,13 +8,16 @@
 import { createHash } from "node:crypto";
 import { buildSchema, type GraphQLSchema } from "graphql";
 
+/** A cached parsed schema plus the hash of the SDL it was built from. */
 interface CacheEntry {
   readonly hash: string;
   readonly schema: GraphQLSchema;
 }
 
+/** In-process schema cache, keyed by environment name. */
 const cache = new Map<string, CacheEntry>();
 
+/** Returns a SHA-256 hex digest of `sdl`, used to detect when cached SDL has changed. */
 function hashSdl(sdl: string): string {
   return createHash("sha256").update(sdl).digest("hex");
 }

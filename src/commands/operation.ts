@@ -1,7 +1,7 @@
 /** @module commands/operation — CLI subcommands for managing saved GraphQL operations. */
 
 import { Command } from "commander";
-import { getCurrentEnv } from "../env-context.js";
+import { getCurrentEnv } from "../context.js";
 import {
   listOperations,
   loadOperation,
@@ -9,6 +9,7 @@ import {
 } from "../services/operations.js";
 import { printInfo, printJson, printSuccess, printTable, handleError } from "../output.js";
 
+/** Creates the `vex operation` command group: `list`, `show`, and `delete` for saved GraphQL operations. */
 export function createOperationCommand(): Command {
   const op = new Command("operation").description("Manage saved GraphQL operations");
 

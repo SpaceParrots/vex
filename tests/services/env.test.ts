@@ -1,12 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { noEnvironmentMessage } from "../../src/config.js";
 
-vi.mock("../../src/env-context.js", async (orig) => {
-  const actual = await orig<typeof import("../../src/env-context.js")>();
+vi.mock("../../src/context.js", async (orig) => {
+  const actual = await orig<typeof import("../../src/context.js")>();
   return { ...actual, getCurrentEnv: vi.fn() };
 });
 
-import { getCurrentEnv, NoEnvironmentError } from "../../src/env-context.js";
+vi.mock("../../src/config.js", async (orig) => {
+  const actual = await orig<typeof import("../../src/config.js")>();
+  return {
+    ...actual,
+    linkProject: vi.fn(async () => ({})),
+    unlinkProject: vi.fn(async () => ({})),
+  };
+});
+
+import { noEnvironmentMessage, linkProject, unlinkProject } from "../../src/config.js";
+import { getCurrentEnv, NoEnvironmentError } from "../../src/context.js";
 import { currentEnvLine } from "../../src/services/env.js";
 
 const mockedGetCurrentEnv = vi.mocked(getCurrentEnv);
@@ -39,11 +48,10 @@ describe("currentEnvLine", () => {
     expect(await currentEnvLine()).toBe("none configured");
   });
 
-  it("returns the error message when resolution throws a non-NoEnvironmentError", async () => {
-    mockedGetCurrentEnv.mockRejectedValue(
-      new Error('Environment "bad" not found (selected via param). Available: dev.')
-    );
-    expect(await currentEnvLine()).toBe(
+  it("propagates non-NoEnvironmentError errors", async () => {
+    const error = new Error('Environment "bad" not found (selected via param). Available: dev.');
+    mockedGetCurrentEnv.mockRejectedValue(error);
+    await expect(currentEnvLine()).rejects.toThrow(
       'Environment "bad" not found (selected via param). Available: dev.'
     );
   });
@@ -56,6 +64,18 @@ describe("currentEnvLine", () => {
     });
     expect(await currentEnvLine()).toBe(
       "staging → staging.example.com (via env param)"
+    );
+  });
+
+  it("formats a project-link resolution with the linked path", async () => {
+    mockedGetCurrentEnv.mockResolvedValue({
+      name: "dev",
+      env: { url: "https://dev.example.com/admin-api", apiKey: "x" },
+      source: "project",
+      projectPath: "/repos/shop",
+    });
+    expect(await currentEnvLine()).toBe(
+      "dev → dev.example.com (via project link /repos/shop)"
     );
   });
 });
@@ -75,5 +95,51 @@ describe("noEnvironmentMessage", () => {
     expect(noEnvironmentMessage(envs)).toBe(
       "No environment selected. Pass an explicit env name or run `vex env switch <name>` to set one active. Available: a, b."
     );
+  });
+});
+
+describe("project link service wrappers", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("linkProjectPath defaults the path to cwd and delegates to config", async () => {
+    const { linkProjectPath } = await import("../../src/services/env.js");
+    const result = await linkProjectPath({ envName: "dev" });
+    expect(result.envName).toBe("dev");
+    expect(result.path).toBe(process.cwd());
+    expect(vi.mocked(linkProject)).toHaveBeenCalledWith(process.cwd(), "dev");
+  });
+
+  it("unlinkProjectPath defaults the path to cwd", async () => {
+    const { unlinkProjectPath } = await import("../../src/services/env.js");
+    const result = await unlinkProjectPath();
+    expect(result.path).toBe(process.cwd());
+    expect(vi.mocked(unlinkProject)).toHaveBeenCalledWith(process.cwd());
+  });
+});
+
+describe("currentEnvInfo", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns name, host, source, and projectPath as structured data", async () => {
+    mockedGetCurrentEnv.mockResolvedValue({
+      name: "dev",
+      env: { url: "https://dev.example.com/admin-api", apiKey: "k" },
+      source: "project",
+      projectPath: process.cwd(),
+    });
+    const { currentEnvInfo } = await import("../../src/services/env.js");
+    const info = await currentEnvInfo();
+    expect(info).toEqual({
+      name: "dev",
+      host: "dev.example.com",
+      source: "project",
+      projectPath: process.cwd(),
+    });
+  });
+
+  it("returns null when nothing is configured", async () => {
+    mockedGetCurrentEnv.mockRejectedValue(new NoEnvironmentError("No environment configured."));
+    const { currentEnvInfo } = await import("../../src/services/env.js");
+    expect(await currentEnvInfo()).toBeNull();
   });
 });

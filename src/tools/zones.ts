@@ -22,8 +22,8 @@ export function registerZoneTools(server: McpServer): void {
     list: {
       summary: "List zones with optional pagination.",
       shape: {
-        take: z.number().optional().describe("Number of results to return"),
-        skip: z.number().optional().describe("Number of results to skip"),
+        take: z.number().optional().describe("Items per page (default 20)."),
+        skip: z.number().optional().describe("Items to skip (default 0)."),
       },
       handler: async (a) => jsonContent(await listZones(a as Parameters<typeof listZones>[0])),
     },
@@ -81,8 +81,8 @@ export function registerZoneTools(server: McpServer): void {
     list_countries: {
       summary: "List available countries/regions with optional pagination.",
       shape: {
-        take: z.number().optional().describe("Number of results to return"),
-        skip: z.number().optional().describe("Number of results to skip"),
+        take: z.number().optional().describe("Items per page (default 20)."),
+        skip: z.number().optional().describe("Items to skip (default 0)."),
       },
       handler: async (a) => jsonContent(await listCountries(a as Parameters<typeof listCountries>[0])),
     },

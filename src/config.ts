@@ -7,9 +7,11 @@
  */
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { existsSync } from "node:fs";
+import { ConfigError, EnvNotFoundError, NoEnvironmentError, VexError } from "./errors.js";
+import { isRecord } from "./guards.js";
 
 /** Describes how to obtain the GraphQL schema for an environment. */
 export interface SchemaSource {
@@ -35,6 +37,8 @@ export interface VexConfig {
   activeEnvironment: string;
   /** Map of environment name to its configuration. */
   environments: Record<string, Environment>;
+  /** Optional map of absolute project (repo) path → environment name. */
+  projects?: Record<string, string>;
 }
 
 const CONFIG_DIR = join(homedir(), ".vendure-vex");
@@ -43,22 +47,59 @@ const SCHEMAS_DIR = join(CONFIG_DIR, "schemas");
 const FRAGMENTS_DIR = join(CONFIG_DIR, "fragments");
 const OPERATIONS_DIR = join(CONFIG_DIR, "operations");
 
+/** Returns a fresh, empty configuration (no active environment, no environments). */
 function emptyConfig(): VexConfig {
   return { activeEnvironment: "", environments: {} };
 }
 
+/** Ensures the config and schemas directories exist, creating them recursively if needed. */
 async function ensureDirs(): Promise<void> {
   await mkdir(CONFIG_DIR, { recursive: true });
   await mkdir(SCHEMAS_DIR, { recursive: true });
 }
 
-/** Loads the configuration from disk, returning an empty config if the file does not exist. */
+/**
+ * Narrows a JSON-parsed value to {@link VexConfig}, checking only the fields
+ * the rest of vex dereferences without asking. `environments` in particular:
+ * a file that parses as JSON but omits it would otherwise flow inward and
+ * fail as a `TypeError` in whichever call site happened to touch it first.
+ */
+function isVexConfig(value: unknown): value is VexConfig {
+  return (
+    isRecord(value) &&
+    typeof value.activeEnvironment === "string" &&
+    isRecord(value.environments) &&
+    (value.projects === undefined || isRecord(value.projects))
+  );
+}
+
+/**
+ * Loads the configuration from disk, returning an empty config if the file
+ * does not exist. The file is user-editable, so its contents are validated
+ * before being trusted as a {@link VexConfig}.
+ *
+ * @throws {ConfigError} If the file is not valid JSON, or parses but does not
+ *   have the shape of a vex config.
+ */
 export async function loadConfig(): Promise<VexConfig> {
   if (!existsSync(CONFIG_FILE)) {
     return emptyConfig();
   }
   const raw = await readFile(CONFIG_FILE, "utf-8");
-  return JSON.parse(raw) as VexConfig;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new ConfigError(`${CONFIG_FILE} is not valid JSON.`, {
+      hint: "Repair the file by hand, or delete it and re-add your environments with `vex env add`.",
+    });
+  }
+  if (!isVexConfig(parsed)) {
+    throw new ConfigError(`${CONFIG_FILE} is not a valid vex config.`, {
+      hint: 'Expected an object with "activeEnvironment" (string) and "environments" (object). Repair the file by hand, or delete it and re-add your environments with `vex env add`.',
+    });
+  }
+  return parsed;
 }
 
 /** Persists the configuration to disk, creating directories as needed. */
@@ -69,7 +110,7 @@ export async function saveConfig(config: VexConfig): Promise<void> {
 
 /**
  * Returns the active environment's name and configuration.
- * Retained as the explicit "active environment only" accessor (ignores per-call overrides); most callers should use getCurrentEnv() from env-context instead.
+ * Retained as the explicit "active environment only" accessor (ignores per-call overrides); most callers should use getCurrentEnv() from context instead.
  *
  * @throws If no active environment is set.
  */
@@ -80,7 +121,9 @@ export async function getActiveEnv(): Promise<{
   const config = await loadConfig();
   const name = config.activeEnvironment;
   if (!name || !config.environments[name]) {
-    throw new Error(noEnvironmentMessage(config.environments));
+    throw new NoEnvironmentError(noEnvironmentMessage(config.environments), {
+      hint: Object.keys(config.environments).length === 0 ? GETTING_STARTED_HINT : undefined,
+    });
   }
   return { name, env: config.environments[name] };
 }
@@ -128,7 +171,7 @@ export function noEnvironmentMessage(
  */
 export function assertValidEnvName(name: string): void {
   if (!ENV_NAME_RE.test(name)) {
-    throw new Error(
+    throw new VexError(
       `Environment name "${name}" must match ${ENV_NAME_RE.source} (letters, digits, underscore, dash only).`
     );
   }
@@ -161,18 +204,23 @@ export async function addEnv(
 /**
  * Removes an environment by name and deletes its cached schema file.
  * Clears the active environment if the removed one was active.
+ * Also removes any project links pointing to the removed environment.
  *
  * @throws If the environment does not exist.
  */
 export async function removeEnv(name: string): Promise<VexConfig> {
   const config = await loadConfig();
   if (!config.environments[name]) {
-    throw new Error(envNotFoundMessage(name, config.environments));
+    throw new EnvNotFoundError(envNotFoundMessage(name, config.environments));
   }
   const { [name]: _, ...rest } = config.environments;
+  const projects = Object.fromEntries(
+    Object.entries(config.projects ?? {}).filter(([, envName]) => envName !== name)
+  );
   const updated: VexConfig = {
     ...config,
     environments: rest,
+    projects,
     activeEnvironment:
       config.activeEnvironment === name ? "" : config.activeEnvironment,
   };
@@ -201,7 +249,7 @@ export async function updateEnv(
   const config = await loadConfig();
   const existing = config.environments[name];
   if (!existing) {
-    throw new Error(envNotFoundMessage(name, config.environments));
+    throw new EnvNotFoundError(envNotFoundMessage(name, config.environments));
   }
   const updated: VexConfig = {
     ...config,
@@ -222,23 +270,11 @@ export async function updateEnv(
 export async function switchEnv(name: string): Promise<VexConfig> {
   const config = await loadConfig();
   if (!config.environments[name]) {
-    throw new Error(envNotFoundMessage(name, config.environments));
+    throw new EnvNotFoundError(envNotFoundMessage(name, config.environments));
   }
   const updated: VexConfig = { ...config, activeEnvironment: name };
   await saveConfig(updated);
   return updated;
-}
-
-/** Returns all environments and the name of the currently active one. */
-export async function listEnvs(): Promise<{
-  active: string;
-  environments: Record<string, Environment>;
-}> {
-  const config = await loadConfig();
-  return {
-    active: config.activeEnvironment,
-    environments: config.environments,
-  };
 }
 
 /** Returns the file path where a given environment's cached schema is stored. */
@@ -263,4 +299,72 @@ export function getFragmentsDir(envName: string): string {
  */
 export function getOperationsDir(envName: string): string {
   return join(OPERATIONS_DIR, envName);
+}
+
+/** Returns the path of the config file (for display in `vex status`). */
+export function getConfigPath(): string {
+  return CONFIG_FILE;
+}
+
+/**
+ * Getting-started steps shown when no environment is configured at all.
+ * Attached as the `hint` of {@link NoEnvironmentError} by the resolver.
+ */
+export const GETTING_STARTED_HINT = [
+  "Get started:",
+  "  1. vex env add dev      configure your Vendure Admin API URL + API key",
+  "  2. vex mcp install      wire vex into this project's .mcp.json (optional)",
+  "  3. vex status           verify everything works",
+].join("\n");
+
+/**
+ * Normalizes a project path for comparison: absolute, trailing separators
+ * stripped, lowercased on Windows (case-insensitive filesystem). Stored keys
+ * keep their original casing for display; comparisons use this form.
+ */
+export function normalizeProjectPath(p: string): string {
+  let abs = resolve(p).replace(/[\\/]+$/, "");
+  if (process.platform === "win32") abs = abs.toLowerCase();
+  return abs;
+}
+
+/**
+ * Links a project (repo) path to an environment. Any existing link for the
+ * same path (compared via {@link normalizeProjectPath}) is replaced.
+ *
+ * @throws {EnvNotFoundError} If `envName` is not configured.
+ */
+export async function linkProject(path: string, envName: string): Promise<VexConfig> {
+  const config = await loadConfig();
+  if (!config.environments[envName]) {
+    throw new EnvNotFoundError(envNotFoundMessage(envName, config.environments));
+  }
+  const abs = resolve(path);
+  const norm = normalizeProjectPath(abs);
+  const remaining = Object.fromEntries(
+    Object.entries(config.projects ?? {}).filter(([p]) => normalizeProjectPath(p) !== norm)
+  );
+  const updated: VexConfig = { ...config, projects: { ...remaining, [abs]: envName } };
+  await saveConfig(updated);
+  return updated;
+}
+
+/**
+ * Removes the project link for a path.
+ *
+ * @throws {VexError} If the path is not linked.
+ */
+export async function unlinkProject(path: string): Promise<VexConfig> {
+  const config = await loadConfig();
+  const norm = normalizeProjectPath(path);
+  const entries = Object.entries(config.projects ?? {});
+  const remaining = entries.filter(([p]) => normalizeProjectPath(p) !== norm);
+  if (remaining.length === entries.length) {
+    throw new VexError(`No project link for "${resolve(path)}".`, {
+      hint: "See linked projects with `vex env list`.",
+    });
+  }
+  const updated: VexConfig = { ...config, projects: Object.fromEntries(remaining) };
+  await saveConfig(updated);
+  return updated;
 }

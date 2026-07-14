@@ -22,8 +22,8 @@ export function registerTaxTools(server: McpServer): void {
     list_categories: {
       summary: "List tax categories.",
       shape: {
-        take: z.number().optional().describe("Number of results to return"),
-        skip: z.number().optional().describe("Number of results to skip"),
+        take: z.number().optional().describe("Items per page (default 20)."),
+        skip: z.number().optional().describe("Items to skip (default 0)."),
       },
       handler: async (a) => jsonContent(await listTaxCategories(a as Parameters<typeof listTaxCategories>[0])),
     },
@@ -48,8 +48,8 @@ export function registerTaxTools(server: McpServer): void {
     list_rates: {
       summary: "List tax rates.",
       shape: {
-        take: z.number().optional().describe("Number of results to return"),
-        skip: z.number().optional().describe("Number of results to skip"),
+        take: z.number().optional().describe("Items per page (default 20)."),
+        skip: z.number().optional().describe("Items to skip (default 0)."),
       },
       handler: async (a) => jsonContent(await listTaxRates(a as Parameters<typeof listTaxRates>[0])),
     },

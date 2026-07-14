@@ -26,15 +26,18 @@ import type { Selection } from "../schema-model/types.js";
 
 let rootOverride: string | null = null;
 
+/** Test hook: redirect the fragments root directory. */
 export function setFragmentsRootForTests(root: string | null): void {
   rootOverride = root;
 }
 
+/** Resolves the on-disk directory for an environment's saved fragments. */
 function envDir(envName: string): string {
   if (rootOverride) return join(rootOverride, envName);
   return getFragmentsDir(envName);
 }
 
+/** Summary of a saved fragment, as returned by list operations. */
 export interface FragmentMeta {
   readonly name: string;
   readonly onType: string;
@@ -42,6 +45,7 @@ export interface FragmentMeta {
   readonly path: string;
 }
 
+/** Input for {@link saveFragment}. */
 export interface SaveFragmentInput {
   readonly envName: string;
   readonly name: string;
@@ -50,7 +54,9 @@ export interface SaveFragmentInput {
   readonly overwrite?: boolean;
 }
 
+/** Safe fragment name: a GraphQL identifier, so it cannot escape the env directory. */
 const NAME_RE = /^[A-Za-z][A-Za-z0-9]*$/;
+/** Safe environment name: no path separators or dots, so it cannot traverse upward. */
 const ENV_NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /** Throws if the fragment name does not match the safe identifier pattern. */
@@ -69,6 +75,11 @@ function assertValidEnvName(envName: string): void {
   }
 }
 
+/**
+ * Pulls the single fragment definition out of a parsed document.
+ *
+ * @throws If `doc` contains zero or more than one fragment definition.
+ */
 function extractFragmentDef(doc: DocumentNode): FragmentDefinitionNode {
   const defs = doc.definitions.filter(
     (d): d is FragmentDefinitionNode => d.kind === "FragmentDefinition"
@@ -79,7 +90,7 @@ function extractFragmentDef(doc: DocumentNode): FragmentDefinitionNode {
   return defs[0];
 }
 
-// Use instanceof — no `as unknown as` casts.
+/** Strips `NonNull`/`List` wrappers to get at the underlying named GraphQL type. */
 function unwrapToNamed(t: unknown): unknown {
   let cur: unknown = t;
   while (cur instanceof GraphQLNonNull || cur instanceof GraphQLList) {
@@ -88,6 +99,17 @@ function unwrapToNamed(t: unknown): unknown {
   return cur;
 }
 
+/**
+ * Recursively checks that every field and inline fragment in `selectionSet`
+ * exists on `parentType` (or, for inline fragments, on the referenced type).
+ * `FragmentSpread` nodes are intentionally not checked — see the inline
+ * comment below.
+ *
+ * @param pathPrefix - Dotted type/field path used to make error messages
+ *   point at the offending location, e.g. `Order.lines`.
+ * @throws If a field is missing, a union is selected directly, or an inline
+ *   fragment targets an unknown or non-composite type.
+ */
 function validateSelectionAgainst(
   parentType: GraphQLObjectType | GraphQLInterfaceType | GraphQLUnionType,
   selectionSet: SelectionSetNode,
@@ -139,6 +161,16 @@ function validateSelectionAgainst(
   }
 }
 
+/**
+ * Validates and persists a fragment's SDL to
+ * `~/.vendure-vex/fragments/{envName}/{name}.graphql`, writing via a
+ * temp-file-then-rename to avoid leaving a partial file on crash.
+ *
+ * @throws If `input.envName`/`input.name` are unsafe, the SDL doesn't parse
+ *   to exactly one fragment matching `input.name`, its type condition isn't
+ *   an object/interface/union, a selected field doesn't exist on that type,
+ *   or the file already exists and `input.overwrite` is not set.
+ */
 export async function saveFragment(input: SaveFragmentInput): Promise<{
   name: string;
   onType: string;
@@ -178,14 +210,21 @@ export async function saveFragment(input: SaveFragmentInput): Promise<{
   return { name: input.name, onType, path: finalPath };
 }
 
+/** Input for {@link listFragments}. */
 export interface ListFragmentsInput {
   readonly envName: string;
   readonly onType?: string;
 }
 
+/**
+ * Reads and parses a fragment file into its {@link FragmentMeta} summary.
+ *
+ * @returns `null` if the file is malformed (unparseable SDL, or not exactly one
+ *   fragment definition), so a bad file is skipped rather than failing a list.
+ * @throws Filesystem errors propagate — a disk error surfaces to the user
+ *   instead of being silently swallowed as a malformed file.
+ */
 async function readMeta(filePath: string): Promise<FragmentMeta | null> {
-  // Filesystem errors propagate; only parse / shape errors yield null so that
-  // a malformed file is silently skipped while a disk error surfaces to the user.
   const sdl = await readFile(filePath, "utf-8");
   try {
     const doc = parse(sdl);
@@ -201,6 +240,7 @@ async function readMeta(filePath: string): Promise<FragmentMeta | null> {
   }
 }
 
+/** Lists saved fragments for an environment, optionally filtered by `onType`. */
 export async function listFragments(input: ListFragmentsInput): Promise<readonly FragmentMeta[]> {
   assertValidEnvName(input.envName);
   const dir = envDir(input.envName);
@@ -219,18 +259,26 @@ export async function listFragments(input: ListFragmentsInput): Promise<readonly
 
 /* ------------------------------- load -------------------------------- */
 
+/** Memoizes resolved {@link Selection}s across {@link loadFragment} calls, keyed by `${envName}|${name}`. */
 const selectionCache = new Map<string, Selection>(); // key: `${envName}|${name}`
 
+/** Clears the in-memory resolved-fragment cache. Mainly for test isolation. */
 export function clearFragmentCache(): void {
   selectionCache.clear();
 }
 
+/** Input for {@link loadFragment}. */
 export interface LoadFragmentInput {
   readonly envName: string;
   readonly name: string;
   readonly schema: GraphQLSchema;
 }
 
+/**
+ * Reads the raw SDL for a fragment file.
+ *
+ * @throws If `name` is unsafe or no fragment file exists for it.
+ */
 async function readFragmentSdl(envName: string, name: string): Promise<string> {
   // envName is validated by the public callers (loadFragment), but `name`
   // can come from arbitrary FragmentSpread refs inside a saved fragment, so
@@ -278,6 +326,16 @@ export async function loadFragment(input: LoadFragmentInput): Promise<Selection>
   return resolve(input.name);
 }
 
+/**
+ * Converts a parsed GraphQL selection set into the {@link Selection} tree
+ * shape used elsewhere in vex, resolving `FragmentSpread`s via `resolveSpread`
+ * (see {@link loadFragment}'s `resolve`) and merging their fields in using a
+ * first-writer-wins rule — see the inline comment on the `FragmentSpread`
+ * branch for why that's safe today.
+ *
+ * @throws If a selected field doesn't exist, has a non-selectable type but
+ *   a sub-selection, or an inline fragment is encountered (unsupported in v1).
+ */
 async function selectionSetToSelection(
   parent: GraphQLObjectType | GraphQLInterfaceType,
   set: SelectionSetNode,
@@ -333,11 +391,13 @@ async function selectionSetToSelection(
 
 /* ------------------------------ delete ------------------------------- */
 
+/** Input for {@link deleteFragment}. */
 export interface DeleteFragmentInput {
   readonly envName: string;
   readonly name: string;
 }
 
+/** Deletes a saved fragment and evicts it from the resolved-selection cache. Returns `{ deleted: false }` if the file did not exist. */
 export async function deleteFragment(
   input: DeleteFragmentInput
 ): Promise<{ deleted: true } | { deleted: false; reason: string }> {
@@ -352,11 +412,17 @@ export async function deleteFragment(
 
 /* ------------------------------ getSdl ------------------------------- */
 
+/** Input for {@link getFragmentSdl}. */
 export interface GetFragmentSdlInput {
   readonly envName: string;
   readonly name: string;
 }
 
+/**
+ * Returns the raw SDL text of a saved fragment.
+ *
+ * @throws If `input.name` is unsafe or no fragment file exists for it.
+ */
 export async function getFragmentSdl(input: GetFragmentSdlInput): Promise<string> {
   assertValidEnvName(input.envName);
   assertValidName(input.name);

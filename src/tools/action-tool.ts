@@ -20,6 +20,7 @@
 
 import { z, type ZodRawShape, type ZodTypeAny } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { toVexError } from "../errors.js";
 import { envAwareTool } from "./env-aware.js";
 
 /**
@@ -45,8 +46,19 @@ export interface ActionDef {
 /** Map of action name → definition. */
 export type ActionMap = Record<string, ActionDef>;
 
+/** Builds an `isError` MCP tool result wrapping a single text message. */
 function errorResult(text: string): ToolResult {
   return { content: [{ type: "text" as const, text }], isError: true };
+}
+
+/**
+ * Converts any thrown value into a uniform MCP error result: the normalized
+ * message, plus a `Hint:` line when the error carries one. Shared by all tool
+ * handlers so failures render identically across the tool surface.
+ */
+export function toolErrorResult(err: unknown): ToolResult {
+  const vexErr = toVexError(err);
+  return errorResult(vexErr.hint ? `${vexErr.message}\nHint: ${vexErr.hint}` : vexErr.message);
 }
 
 /**
@@ -69,7 +81,7 @@ function mergeShapes(actions: ActionMap): ZodRawShape {
 /** Builds the tool description: the domain summary plus a one-line catalog of actions. */
 function buildDescription(base: string, actions: ActionMap): string {
   const lines = Object.entries(actions).map(([name, def]) => `- ${name}: ${def.summary}`);
-  return `${base}\n\nSet \`action\` to one of:\n${lines.join("\n")}`;
+  return `${base}\n\nActions:\n${lines.join("\n")}`;
 }
 
 /**
@@ -98,7 +110,11 @@ export async function dispatchAction(
     return errorResult(`Invalid input for action "${action}": ${issues}`);
   }
 
-  return actions[action].handler(parsed.data as Record<string, unknown>);
+  try {
+    return await actions[action].handler(parsed.data as Record<string, unknown>);
+  } catch (err) {
+    return toolErrorResult(err);
+  }
 }
 
 /**
@@ -122,7 +138,7 @@ export function actionTool(
   const shape: ZodRawShape = {
     action: z
       .enum(actionNames as [string, ...string[]])
-      .describe("The operation to perform. See the tool description for valid values."),
+      .describe("Operation to perform; see description for valid values."),
     ...mergeShapes(actions),
   };
 

@@ -1,89 +1,78 @@
+/**
+ * @module client
+ *
+ * GraphQL client factory for the Vendure Admin API.
+ *
+ * vex uses exactly one shape of GraphQL call: a document *string* plus an
+ * optional variables object. `graphql-request`'s `request()` is heavily
+ * overloaded (string | DocumentNode | TypedDocumentNode | a single options
+ * object), and wrapping that overload set to intercept errors required
+ * casting both the arguments and the patched method. So instead of patching
+ * `GraphQLClient`, this module exposes {@link VexClient} — the narrow surface
+ * vex actually calls — and delegates to `graphql-request` inside it. The
+ * document is therefore always a string by construction, which is what
+ * {@link enrichPermissionError} needs to name the denied operation.
+ */
+
 import { GraphQLClient } from "graphql-request";
 import type { Environment } from "./config.js";
-import { getCurrentEnv } from "./env-context.js";
+import { getCurrentEnv } from "./context.js";
 import { API_KEY_HEADER } from "./constants.js";
-
-interface GraphQLErrorShape {
-  readonly message?: string;
-  readonly path?: ReadonlyArray<string | number>;
-  readonly extensions?: { readonly code?: string };
-}
-
-interface ClientErrorShape {
-  readonly response?: {
-    readonly status?: number;
-    readonly errors?: ReadonlyArray<GraphQLErrorShape>;
-  };
-  readonly message?: string;
-}
+import { toVexError } from "./errors.js";
+import { enrichPermissionError } from "./permission-errors.js";
 
 /**
- * Distills a `graphql-request` ClientError into a short, single-line message.
- * The raw library error stringifies the full request body (entire query SDL
- * plus variables) into `message`, which inflates every failed call by hundreds
- * to thousands of tokens. This helper extracts just the GraphQL error
- * messages, error codes (`extensions.code`), and field paths.
+ * The GraphQL surface vex uses: one operation per call, sent as a document
+ * string with optional variables. Deliberately narrower than
+ * `graphql-request`'s `GraphQLClient` — see the module doc.
  */
-export function compactGraphQLError(err: unknown): Error {
-  if (!err || typeof err !== "object") {
-    return err instanceof Error ? err : new Error(String(err));
-  }
-  const e = err as ClientErrorShape;
-  const errors = e.response?.errors;
-  if (Array.isArray(errors) && errors.length > 0) {
-    const parts = errors.map((g) => {
-      const code = g.extensions?.code ? ` [${g.extensions.code}]` : "";
-      const path = g.path && g.path.length ? ` @ ${g.path.join(".")}` : "";
-      return `${g.message ?? "unknown error"}${code}${path}`;
-    });
-    const prefix = e.response?.status ? `HTTP ${e.response.status} — ` : "";
-    const out = new Error(`${prefix}${parts.join("; ")}`);
-    // Preserve the cause for callers that want the raw shape without echoing it.
-    (out as Error & { cause?: unknown }).cause = err;
-    return out;
-  }
-  if (e.response?.status) {
-    const out = new Error(`HTTP ${e.response.status}`);
-    (out as Error & { cause?: unknown }).cause = err;
-    return out;
-  }
-  return err instanceof Error ? err : new Error(String(err));
+export interface VexClient {
+  /**
+   * Executes `document` against the environment's Admin API.
+   *
+   * @throws {VexError} Every failure is normalized — compact messages that
+   *   never echo the request body, with the raw error kept on `.cause`. When
+   *   the client knows its environment name, a permission denial is enriched
+   *   with the denied operation and the permissions likely required.
+   */
+  request<T = unknown>(document: string, variables?: Record<string, unknown>): Promise<T>;
 }
 
 /**
- * Creates a GraphQL client configured for the given Vendure environment.
- *
- * The returned client transparently compacts `graphql-request`'s `ClientError`
- * messages so failures don't echo the full request body into the response.
+ * Creates a {@link VexClient} for the given Vendure environment.
  *
  * @param env - The environment containing the API URL and key.
- * @returns A configured {@link GraphQLClient} instance.
+ * @param envName - Optional environment name; enables schema-aware error
+ *   enrichment (permission suggestions) for callers that know it.
  */
-export function createClient(env: Environment): GraphQLClient {
+export function createClient(env: Environment, envName?: string): VexClient {
   const client = new GraphQLClient(env.url, {
     headers: {
       [API_KEY_HEADER]: env.apiKey,
     },
   });
-  const originalRequest = client.request.bind(client);
-  client.request = (async (...args: Parameters<typeof originalRequest>) => {
-    try {
-      return await originalRequest(...args);
-    } catch (err) {
-      throw compactGraphQLError(err);
-    }
-  }) as typeof client.request;
-  return client;
+
+  return {
+    async request<T = unknown>(document: string, variables?: Record<string, unknown>): Promise<T> {
+      try {
+        return await client.request<T>(document, variables ?? {});
+      } catch (err) {
+        const vexErr = toVexError(err);
+        if (!envName) throw vexErr;
+        throw await enrichPermissionError(vexErr, envName, document);
+      }
+    },
+  };
 }
 
 /**
  * Convenience helper that resolves the current environment
- * (override > VEX_ENV > active) and returns a ready-to-use GraphQL client.
+ * (override > VEX_ENV > project link > active) and returns a ready-to-use client.
  *
- * @returns A configured {@link GraphQLClient} for the current environment.
- * @throws If no environment is configured or the resolved name is not found.
+ * @throws {NoEnvironmentError} If no environment is configured.
+ * @throws {EnvNotFoundError} If the resolved environment name is not found.
  */
-export async function getClient(): Promise<GraphQLClient> {
-  const { env } = await getCurrentEnv();
-  return createClient(env);
+export async function getClient(): Promise<VexClient> {
+  const { name, env } = await getCurrentEnv();
+  return createClient(env, name);
 }

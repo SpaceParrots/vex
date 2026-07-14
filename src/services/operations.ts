@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { parse, type DocumentNode, type OperationDefinitionNode } from "graphql";
 import { getOperationsDir } from "../config.js";
 import { SENSITIVE_VAR_NAME_RE } from "../constants.js";
+import { isRecord } from "../guards.js";
 
 let rootOverride: string | null = null;
 
@@ -21,13 +22,17 @@ export function setOperationsRootForTests(root: string | null): void {
   rootOverride = root;
 }
 
+/** Resolves the on-disk directory for an environment's saved operations. */
 function envDir(envName: string): string {
   if (rootOverride) return join(rootOverride, envName);
   return getOperationsDir(envName);
 }
 
+/** Safe operation name: a GraphQL identifier, so it cannot escape the env directory. */
 const NAME_RE = /^[A-Za-z][A-Za-z0-9]*$/;
+/** Safe environment name: no path separators or dots, so it cannot traverse upward. */
 const ENV_NAME_RE = /^[A-Za-z0-9_-]+$/;
+/** Variable keys rejected on merge — assigning them would pollute the prototype chain. */
 const RESERVED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 /** Throws if the operation name does not match the safe identifier pattern. */
@@ -97,6 +102,7 @@ export interface OperationMeta {
   readonly path: string;
 }
 
+/** Input for {@link saveOperation}. */
 export interface SaveOperationInput {
   readonly envName: string;
   readonly name: string;
@@ -112,6 +118,11 @@ export interface SaveOperationInput {
   readonly overwrite?: boolean;
 }
 
+/**
+ * Pulls the single operation definition out of a parsed document.
+ *
+ * @throws If `doc` contains zero or more than one operation definition.
+ */
 function extractOperation(doc: DocumentNode): OperationDefinitionNode {
   const ops = doc.definitions.filter(
     (d): d is OperationDefinitionNode => d.kind === "OperationDefinition"
@@ -122,6 +133,7 @@ function extractOperation(doc: DocumentNode): OperationDefinitionNode {
   return ops[0];
 }
 
+/** Path of a saved operation's JSON record: `{envDir}/{name}.json`. */
 function operationPath(envName: string, name: string): string {
   return join(envDir(envName), `${name}.json`);
 }
@@ -189,6 +201,7 @@ export async function saveOperation(input: SaveOperationInput): Promise<Operatio
   };
 }
 
+/** Input for {@link loadOperation}. */
 export interface LoadOperationInput {
   readonly envName: string;
   readonly name: string;
@@ -212,42 +225,63 @@ export async function loadOperation(input: LoadOperationInput): Promise<SavedOpe
   return assertSavedOperationShape(parsed, input.name);
 }
 
+/**
+ * Validates that a JSON-parsed value has the shape of a {@link SavedOperation}
+ * before it's trusted as one — guards against hand-edited or corrupted files.
+ *
+ * @throws If a required field is missing/mis-typed, `kind` isn't
+ *   `"query"`/`"mutation"`, `variables` isn't a plain object, or `variables`
+ *   contains a reserved key.
+ */
 function assertSavedOperationShape(value: unknown, name: string): SavedOperation {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     throw new Error(`Saved operation "${name}" is malformed (expected an object).`);
   }
-  const v = value as Record<string, unknown>;
-  const expect = (key: string, want: string): void => {
-    if (typeof v[key] !== want) {
+  const str = (key: string): string => {
+    const raw = value[key];
+    if (typeof raw !== "string") {
       throw new Error(`Saved operation "${name}" is missing or has wrong type for "${key}".`);
     }
+    return raw;
   };
-  expect("name", "string");
-  expect("kind", "string");
-  expect("rootField", "string");
-  expect("document", "string");
-  expect("createdAt", "string");
-  expect("updatedAt", "string");
-  if (v.kind !== "query" && v.kind !== "mutation") {
-    throw new Error(`Saved operation "${name}" has invalid kind "${String(v.kind)}".`);
+  const kind = str("kind");
+  if (kind !== "query" && kind !== "mutation") {
+    throw new Error(`Saved operation "${name}" has invalid kind "${kind}".`);
   }
-  if (!v.variables || typeof v.variables !== "object" || Array.isArray(v.variables)) {
+  const variables = value.variables;
+  if (!isRecord(variables)) {
     throw new Error(`Saved operation "${name}" has invalid variables (expected an object).`);
   }
-  assertNoReservedKeys(v.variables as Record<string, unknown>, "saved variables");
-  return v as unknown as SavedOperation;
+  assertNoReservedKeys(variables, "saved variables");
+  return {
+    name: str("name"),
+    kind,
+    rootField: str("rootField"),
+    document: str("document"),
+    variables,
+    createdAt: str("createdAt"),
+    updatedAt: str("updatedAt"),
+  };
 }
 
+/** Input for {@link listOperations}. */
 export interface ListOperationsInput {
   readonly envName: string;
   readonly kind?: "query" | "mutation";
   readonly rootField?: string;
 }
 
+/**
+ * Reads and parses a saved-operation JSON file into its {@link OperationMeta}
+ * summary. Unlike {@link loadOperation}, a corrupt record here yields `null`
+ * (skipping the file) rather than throwing, so one bad file doesn't break
+ * listing. The shape is validated, not assumed: a file that is valid JSON but
+ * not an operation would otherwise be listed with `undefined` name and kind.
+ */
 async function readMeta(filePath: string): Promise<OperationMeta | null> {
   const raw = await readFile(filePath, "utf-8");
   try {
-    const rec = JSON.parse(raw) as SavedOperation;
+    const rec = assertSavedOperationShape(JSON.parse(raw), filePath);
     return {
       name: rec.name,
       kind: rec.kind,
@@ -279,6 +313,7 @@ export async function listOperations(input: ListOperationsInput): Promise<readon
   return out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+/** Input for {@link deleteOperation}. */
 export interface DeleteOperationInput {
   readonly envName: string;
   readonly name: string;
