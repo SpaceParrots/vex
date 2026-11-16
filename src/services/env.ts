@@ -25,40 +25,23 @@ import {
 } from "../config.js";
 import { refetchSchema } from "../schema.js";
 import { createClient } from "../client.js";
-import { API_KEY_MASK_LENGTH, API_KEY_MASK_SUFFIX } from "../constants.js";
+import {
+  API_KEY_MASK_LENGTH,
+  API_KEY_MASK_SUFFIX,
+  AUTH_PROBE_QUERY,
+  GRAPHQL_VALIDATION_FAILED_CODE,
+  INVALID_EXECUTION_RESULT_PREFIX,
+  STATUS_DETAIL_MAX_LENGTH,
+} from "../constants.js";
 import { getCurrentEnv, type EnvSource } from "../context.js";
-import { NoEnvironmentError, EnvNotFoundError, VexError, isErrnoException } from "../errors.js";
-
-/** The shape of a `graphql-request` `ClientError`'s `.response`. */
-interface GraphQLRequestError {
-  readonly response: {
-    readonly status: number;
-    readonly errors?: ReadonlyArray<{ readonly message?: string }>;
-  };
-}
-
-/** Type guard: does `value` look like a `graphql-request` error with a `.response.status`? */
-function hasGraphQLResponse(value: unknown): value is GraphQLRequestError {
-  if (!value || typeof value !== "object") return false;
-  const response = (value as { response?: unknown }).response;
-  if (!response || typeof response !== "object") return false;
-  return typeof (response as { status?: unknown }).status === "number";
-}
-
-/**
- * Returns the underlying `graphql-request` `ClientError`-shaped object if the
- * thrown error exposes one. `createClient()` normalizes raw client errors via
- * `toVexError`, preserving the original on `.cause`, so we walk that
- * chain (with a small bound) before giving up.
- */
-function findGraphQLRequestError(err: unknown): GraphQLRequestError | null {
-  let cur: unknown = err;
-  for (let i = 0; i < 5 && cur; i++) {
-    if (hasGraphQLResponse(cur)) return cur;
-    cur = (cur as { cause?: unknown }).cause;
-  }
-  return null;
-}
+import {
+  NoEnvironmentError,
+  EnvNotFoundError,
+  VexError,
+  GraphQLRequestError,
+  NetworkError,
+  PermissionError,
+} from "../errors.js";
 
 /** Rewrites an absolute path under the user's home directory to start with `~`, for display. */
 export function tildeify(p: string): string {
@@ -248,27 +231,80 @@ export interface EnvStatusResult {
   readonly schema: EnvCheck;
 }
 
-/** Posts a trivial GraphQL query to confirm the endpoint is reachable and accepting the API key. */
-export async function checkEndpoint(env: Environment): Promise<EnvCheck> {
+/** Does `value` carry the `globalSettings.id` that {@link AUTH_PROBE_QUERY} selects? */
+function isProbeResult(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || !("globalSettings" in value)) return false;
+  const settings = value.globalSettings;
+  return typeof settings === "object" && settings !== null && "id" in settings;
+}
+
+/** Shortens an error message to its first line, capped at {@link STATUS_DETAIL_MAX_LENGTH} characters. */
+function firstLine(message: string): string {
+  const line = message.split("\n", 1)[0]?.trim() ?? "";
+  return line.length > STATUS_DETAIL_MAX_LENGTH ? `${line.slice(0, STATUS_DETAIL_MAX_LENGTH)}...` : line;
+}
+
+/** Formats a GraphQL failure as `HTTP <status>: <message> [<code>]; ...` for one-line status output. */
+function describeGraphQLFailure(err: GraphQLRequestError): string {
+  const messages = err.errors.map((e) => `${e.message}${e.code ? ` [${e.code}]` : ""}`).join("; ");
+  const status = err.status !== undefined ? `HTTP ${err.status}` : "";
+  return [status, messages].filter((part) => part.length > 0).join(": ");
+}
+
+/**
+ * Checks that the endpoint is a reachable Vendure Admin API and that it
+ * accepts the API key, by running {@link AUTH_PROBE_QUERY}. Never throws:
+ * every outcome comes back as an {@link EnvCheck}, and only an accepted key
+ * yields `ok: true`.
+ *
+ * Vendure rejects an invalid key with HTTP 200 and a `FORBIDDEN` GraphQL
+ * error rather than a 401/403, so both count as a rejected key. A schema
+ * validation failure means the URL serves another GraphQL API (usually the
+ * Shop API); an HTTP error without GraphQL errors means the URL is not a
+ * GraphQL endpoint. Any other GraphQL failure leaves the key unverified.
+ *
+ * @param env - The environment to probe.
+ * @param envName - Environment name used in the suggested fix; `<name>` when omitted.
+ */
+export async function checkEndpoint(env: Environment, envName?: string): Promise<EnvCheck> {
   const client = createClient(env);
+  const fixHint = `check the key in the Vendure admin, then update it with \`vex env set ${envName ?? "<name>"} --api-key <new-key>\``;
   try {
-    await client.request<{ __typename: string }>("{ __typename }");
-    return { ok: true, detail: "reachable, API key accepted" };
+    const result = await client.request<unknown>(AUTH_PROBE_QUERY);
+    if (isProbeResult(result)) return { ok: true, detail: "reachable, API key accepted" };
+    return { ok: false, detail: "endpoint answered without GraphQL data (check the URL)" };
   } catch (err: unknown) {
-    const gqlErr = findGraphQLRequestError(err);
-    if (gqlErr) {
-      const status = gqlErr.response.status;
-      const firstError = gqlErr.response.errors?.[0]?.message;
-      if (status === 401 || status === 403) {
-        return { ok: false, detail: `reachable but unauthorized (HTTP ${status})` };
+    if (err instanceof PermissionError) {
+      const codes = [...new Set(err.errors.flatMap((e) => (e.code ? [e.code] : [])))].join(", ");
+      return { ok: false, detail: `reachable, but API key rejected (${codes}): ${fixHint}` };
+    }
+    if (err instanceof GraphQLRequestError) {
+      if (err.status === 401 || err.status === 403) {
+        return { ok: false, detail: `reachable, but API key rejected (HTTP ${err.status}): ${fixHint}` };
       }
-      // Any GraphQL response means the endpoint is up, even if the query was rejected.
-      return { ok: true, detail: `reachable (HTTP ${status}${firstError ? `: ${firstError}` : ""})` };
+      if (err.errors.some((e) => e.code === GRAPHQL_VALIDATION_FAILED_CODE)) {
+        return {
+          ok: false,
+          detail:
+            "reachable, but not a Vendure Admin API (it does not serve globalSettings; is this the Shop API? Admin API URLs usually end in /admin-api)",
+        };
+      }
+      if (err.errors.length === 0) {
+        return {
+          ok: false,
+          detail: `endpoint answered ${describeGraphQLFailure(err)} without a GraphQL response (check the URL)`,
+        };
+      }
+      return { ok: false, detail: `reachable, but API key not verified (${describeGraphQLFailure(err)})` };
     }
-    if (isErrnoException(err) && err.code) {
-      return { ok: false, detail: `not reachable (${err.code})` };
+    if (err instanceof NetworkError) {
+      return { ok: false, detail: `not reachable (${err.detail})` };
     }
-    return { ok: false, detail: err instanceof Error ? err.message : "unknown error" };
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.startsWith(INVALID_EXECUTION_RESULT_PREFIX)) {
+      return { ok: false, detail: "endpoint did not answer with GraphQL JSON (check the URL)" };
+    }
+    return { ok: false, detail: `unexpected response (${firstLine(message)}); check the URL` };
   }
 }
 
@@ -321,7 +357,7 @@ export async function statusEnvironment(name?: string): Promise<EnvStatusResult>
   }
 
   const [endpoint, schema] = await Promise.all([
-    checkEndpoint(env),
+    checkEndpoint(env, targetName),
     checkSchema(env, targetName),
   ]);
 

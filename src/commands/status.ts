@@ -22,7 +22,8 @@ function sourceLabel(source: EnvSource, projectPath?: string): string {
 /**
  * Creates the `vex status` command showing env, endpoint, schema, and config health.
  *
- * The process exit code (1 on failure) reflects endpoint reachability only; an
+ * The process exit code is 1 when the endpoint check fails: the endpoint is
+ * unreachable, is not a Vendure Admin API, or rejects the API key. An
  * uncached schema is not treated as a failure because `vex schema fetch` self-heals it.
  */
 export function createStatusCommand(): Command {

@@ -49,9 +49,22 @@ export class EnvNotFoundError extends VexError {
   override readonly code: string = "ENV_NOT_FOUND";
 }
 
+/** Options for {@link NetworkError}. */
+export interface NetworkErrorOptions extends VexErrorOptions {
+  /** Transport error code (e.g. `ECONNREFUSED`) or, without one, the innermost cause's message. */
+  readonly detail?: string;
+}
+
 /** The endpoint could not be reached at the transport level (DNS, TCP, TLS). */
 export class NetworkError extends VexError {
   override readonly code: string = "NETWORK";
+  /** Short reason for the failure, e.g. `ECONNREFUSED`; falls back to the message. */
+  readonly detail: string;
+
+  constructor(message: string, options: NetworkErrorOptions = {}) {
+    super(message, options);
+    this.detail = options.detail ?? message;
+  }
 }
 
 /** One compacted GraphQL error from a failed request. */
@@ -147,17 +160,35 @@ export function isErrnoException(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && "code" in err;
 }
 
-/** Returns the error's `.code` (or its `.cause`'s `.code`), if any. */
+/** Maximum depth walked along an error's `cause` chain. */
+const MAX_CAUSE_DEPTH = 4;
+
+/** Returns `err` followed by its `cause` chain (Errors only), at most {@link MAX_CAUSE_DEPTH} entries. */
+function causeChain(err: Error): readonly Error[] {
+  const chain: Error[] = [];
+  let cur: unknown = err;
+  while (chain.length < MAX_CAUSE_DEPTH && cur instanceof Error) {
+    chain.push(cur);
+    cur = cur.cause;
+  }
+  return chain;
+}
+
+/**
+ * Returns the first Node `.code` found along the error's `cause` chain, if
+ * any. fetch nests it as `TypeError("fetch failed").cause.code`.
+ */
 function errorCode(err: Error): string | undefined {
-  const code = isErrnoException(err) ? err.code : undefined;
-  if (code) return code;
-  return isErrnoException(err.cause) ? err.cause.code : undefined;
+  for (const e of causeChain(err)) {
+    if (isErrnoException(e) && e.code) return e.code;
+  }
+  return undefined;
 }
 
 /**
  * Determines whether `err` represents a transport-level failure (DNS, TCP,
  * TLS, fetch dispatch) rather than an unrelated Node error such as EACCES.
- * Matches the error's (or its `cause`'s) `.code` against {@link NETWORK_ERROR_CODES}
+ * Matches the first `.code` along the error's `cause` chain against {@link NETWORK_ERROR_CODES}
  * plus undici's `UND_ERR*` family, falling back to matching fetch's generic
  * "fetch failed" message, so unrelated errors are not misreported as an
  * unreachable endpoint.
@@ -169,9 +200,12 @@ function isNetworkFailure(err: unknown): err is Error {
   return /fetch failed/i.test(err.message);
 }
 
-/** Returns a short, human-readable detail for a network failure: the error code if present, otherwise the message. */
+/**
+ * Returns a short, human-readable detail for a network failure: the first
+ * error code along the `cause` chain, otherwise the innermost message.
+ */
 function networkDetail(err: Error): string {
-  return errorCode(err) ?? err.message;
+  return errorCode(err) ?? causeChain(err).at(-1)?.message ?? err.message;
 }
 
 /**
@@ -214,8 +248,10 @@ export function toVexError(err: unknown): VexError {
   }
 
   if (isNetworkFailure(err)) {
-    return new NetworkError(`Endpoint not reachable (${networkDetail(err)})`, {
+    const detail = networkDetail(err);
+    return new NetworkError(`Endpoint not reachable (${detail})`, {
       cause: err,
+      detail,
       hint: "Check the URL and that the Vendure server is running — try `vex status`.",
     });
   }

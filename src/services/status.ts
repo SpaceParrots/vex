@@ -51,7 +51,7 @@ export async function statusReport(): Promise<StatusReport> {
   const ctx = await getCurrentEnv();
 
   const started = Date.now();
-  const endpoint = await checkEndpoint(ctx.env);
+  const endpoint = await checkEndpoint(ctx.env, ctx.name);
   const latencyMs = Date.now() - started;
 
   const schemaPath = getSchemaPath(ctx.name);

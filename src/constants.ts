@@ -42,3 +42,23 @@ export const MAX_SELECTOR_DEPTH = 6;
  * match these patterns, since saved operation files live unencrypted on disk.
  */
 export const SENSITIVE_VAR_NAME_RE = /password|secret|token|apikey|api_key|credential|authorization|bearer/i;
+
+/**
+ * Query `vex env status` / `vex status` use to verify the API key. It must
+ * need authentication, since meta fields such as `{ __typename }` resolve for
+ * any key. `globalSettings` is `@Allow(Permission.Authenticated)` in Vendure,
+ * so every valid key passes it whatever its role, and it exists only in the
+ * Admin API, so a Shop API URL fails schema validation instead of passing.
+ * `activeChannel` is public in the Shop API and `me` is denied to some valid
+ * API keys, so neither works as a probe.
+ */
+export const AUTH_PROBE_QUERY = "{ globalSettings { id } }";
+
+/** GraphQL error code Apollo returns when a document does not validate against the served schema. */
+export const GRAPHQL_VALIDATION_FAILED_CODE = "GRAPHQL_VALIDATION_FAILED";
+
+/** Message prefix `graphql-request` throws when a response body is not a GraphQL result (e.g. an HTML page). */
+export const INVALID_EXECUTION_RESULT_PREFIX = "Invalid execution result";
+
+/** Longest error excerpt shown in a one-line status row before it is cut off. */
+export const STATUS_DETAIL_MAX_LENGTH = 120;
