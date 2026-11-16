@@ -88,6 +88,22 @@ describe("toVexError", () => {
     expect(err).toBeInstanceOf(NetworkError);
   });
 
+  it("finds the transport code nested in fetch's cause chain and exposes it as detail", () => {
+    const socket = Object.assign(new Error("connect ENOTFOUND shop.example"), { code: "ENOTFOUND" });
+    const wrapper = new Error("request to shop.example failed", { cause: socket });
+    const err = toVexError(new TypeError("fetch failed", { cause: wrapper }));
+    expect(err).toBeInstanceOf(NetworkError);
+    expect(err.message).toBe("Endpoint not reachable (ENOTFOUND)");
+    expect(err).toHaveProperty("detail", "ENOTFOUND");
+  });
+
+  it("falls back to the innermost cause's message when no code is present", () => {
+    const err = toVexError(new TypeError("fetch failed", { cause: new Error("bad port") }));
+    expect(err).toBeInstanceOf(NetworkError);
+    expect(err.message).toBe("Endpoint not reachable (bad port)");
+    expect(err).toHaveProperty("detail", "bad port");
+  });
+
   it("does not treat a non-network errno code (e.g. EACCES) as a NetworkError", () => {
     const eacces = Object.assign(new Error("permission denied, open '/etc/shadow'"), { code: "EACCES" });
     const err = toVexError(eacces);
