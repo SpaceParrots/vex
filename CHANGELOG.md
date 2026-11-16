@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0](https://github.com/SpaceParrots/vex/compare/v1.1.1...v1.2.0) (2026-11-16)
+
+
+### Features
+
+* **cli:** read query documents and variables from a file or stdin ([#69](https://github.com/SpaceParrots/vex/issues/69)) ([95b95f7](https://github.com/SpaceParrots/vex/commit/95b95f7b87a276453d449a550af82f7b71b87f64))
+
+
+### Bug Fixes
+
+* **deps:** bump MCP SDK to 1.32 and vitest to 4.1 to clear open security advisories ([#68](https://github.com/SpaceParrots/vex/issues/68)) ([0bbb8e1](https://github.com/SpaceParrots/vex/commit/0bbb8e1fb237e8fcb3c612847180f39fbe12680c))
+* **deps:** upgrade zod to 4.6 to clear the memory-exhaustion advisory ([#73](https://github.com/SpaceParrots/vex/issues/73)) ([1a77a2d](https://github.com/SpaceParrots/vex/commit/1a77a2ddfb1ab596c64eee660362f27eede2f47a))
+* **env:** verify the API key in env status with an authenticated probe ([#71](https://github.com/SpaceParrots/vex/issues/71)) ([eb25bba](https://github.com/SpaceParrots/vex/commit/eb25bba57300fe0a55260fdfc577c6b50c829ba7))
+
 ## [1.1.1](https://github.com/SpaceParrots/vex/compare/v1.1.0...v1.1.1) (2026-07-14)
 
 
