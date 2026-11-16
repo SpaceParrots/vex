@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -57,10 +57,9 @@ describe("requestWithUploads", () => {
   const filePath = join(dir, "a.png");
   const ENV = { url: "https://x.example.com/admin-api", apiKey: "k" };
   beforeAll(() => writeFileSync(filePath, Buffer.from([1])));
-  afterAll(() => {
-    rmSync(dir, { recursive: true, force: true });
-    vi.restoreAllMocks();
-  });
+  // Vitest 4 reuses an existing spy on re-spying, so restore per test to keep call history isolated.
+  afterEach(() => vi.restoreAllMocks());
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
   it("posts multipart with the API key header and returns data", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
