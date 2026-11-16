@@ -9,6 +9,7 @@ import {
   parseVarPairs,
 } from "../services/operations.js";
 import { printInfo, handleError } from "../output.js";
+import { readVariablesArg } from "../cli-input.js";
 
 interface RunOpts {
   var?: string[];
@@ -39,8 +40,8 @@ export function createRunCommand(): Command {
       []
     )
     .option(
-      "--vars-json <json>",
-      "Replace the entire variables object with the given JSON value (applied before --var)"
+      "--vars-json <json|file>",
+      "Replace the entire variables object (applied before --var). Inline JSON if it starts with \"{\", otherwise a path to a .json file; - reads stdin"
     )
     .option("--dry-run", "Print the document + final variables without executing")
     .option("--verbose", "Also print the document and final variables before executing (default: response only)")
@@ -58,6 +59,8 @@ Examples:
       Booleans/numbers go in as their real JSON types, never as strings.
   $ vex run ContentsPublished --vars-json '{"options":{"take":50}}' --dry-run
       Replace all variables, print the document, do not execute.
+  $ vex run ContentsPublished --vars-json vars.json
+      Same, with the variables read from a JSON file (a value not starting with "{" is a path).
 
 Use \`vex operation list\` to see saved names.
 `
@@ -69,17 +72,9 @@ Use \`vex operation list\` to see saved names.
 
         let variables: Record<string, unknown> = rec.variables as Record<string, unknown>;
         if (opts.varsJson !== undefined) {
-          let parsed: unknown;
-          try {
-            parsed = JSON.parse(opts.varsJson);
-          } catch (err) {
-            throw new Error(`Invalid --vars-json: ${(err as Error).message}`);
-          }
-          if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-            throw new Error("--vars-json must be a JSON object.");
-          }
+          const parsed = await readVariablesArg(opts.varsJson, "--vars-json");
           // Round-trip through mergeVariables so reserved-key guards apply uniformly.
-          variables = mergeVariables({}, parsed as Record<string, unknown>);
+          variables = mergeVariables({}, parsed);
         }
         if (opts.var && opts.var.length > 0) {
           variables = mergeVariables(variables, parseVarPairs(opts.var));

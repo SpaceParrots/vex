@@ -184,7 +184,7 @@ vex build -m <name>                                   # Build a mutation
 ```bash
 vex run <Name>                                        # Replay a saved operation
         [--var key=value ...]                         # Override one top-level variable (JSON-parsed; repeatable)
-        [--vars-json '<json>']                        # Replace the full variables object
+        [--vars-json '<json>'|file]                   # Replace the full variables object
         [--dry-run] [--verbose]
 vex operation list [--kind query|mutation] [--root-field <name>]
 vex operation show <Name> [--json]
@@ -202,8 +202,16 @@ vex fragment delete <Name>
 ### Generic GraphQL
 
 ```bash
-vex query '<graphql>' [--variables '<json>']          # Run any query
-vex mutate '<graphql>' [--variables '<json>']         # Run any mutation
+vex query '<graphql>'|file [--variables '<json>'|file]   # Run any query
+vex mutate '<graphql>'|file [--variables '<json>'|file]  # Run any mutation
+```
+
+`<graphql>` and `--variables` take an inline value, a file path, or `-` for stdin. vex decides by the value: a document containing `{` is inline GraphQL, variables starting with `{` are inline JSON, anything else is read as a file (UTF-8). Files avoid the Windows command line limit of about 8,000 characters and shell quoting of JSON. `vex query --help` lists the rules.
+
+```bash
+vex query orders.graphql --variables '{"options":{"take":5}}'
+vex mutate update-newsletter.graphql --variables vars.json
+cat vars.json | vex mutate update-newsletter.graphql --variables -
 ```
 
 ### Customers, Products, Orders, Channels, Zones, Tax
