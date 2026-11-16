@@ -49,6 +49,11 @@ export class EnvNotFoundError extends VexError {
   override readonly code: string = "ENV_NOT_FOUND";
 }
 
+/** A CLI argument or input file is missing, unreadable, or malformed. */
+export class InputError extends VexError {
+  override readonly code: string = "INPUT";
+}
+
 /** The endpoint could not be reached at the transport level (DNS, TCP, TLS). */
 export class NetworkError extends VexError {
   override readonly code: string = "NETWORK";
