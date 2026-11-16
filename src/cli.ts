@@ -81,6 +81,8 @@ Examples:
                                              # save the built operation for replay
   $ vex run ContentsPublished --var "options={\\"take\\":5}"
                                              # replay a saved op with a variable override
+  $ vex mutate update.graphql --variables vars.json
+                                             # raw GraphQL; <graphql> and --variables take inline text or a file path
   $ vex                                      # (no args) start MCP server on stdio for Claude / other clients
 
 Reusable building blocks:
