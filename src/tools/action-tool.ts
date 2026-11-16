@@ -68,7 +68,7 @@ export function toolErrorResult(err: unknown): ToolResult {
  * (e.g. `id`) described consistently across actions.
  */
 function mergeShapes(actions: ActionMap): ZodRawShape {
-  const merged: ZodRawShape = {};
+  const merged: Record<string, ZodTypeAny> = {};
   for (const def of Object.values(actions)) {
     for (const [key, zodType] of Object.entries(def.shape)) {
       const t = zodType as ZodTypeAny;

@@ -52,11 +52,11 @@ export function registerOperationTools(server: McpServer): void {
         shape: {
           name: z.string().describe("Saved operation name (CamelCase)."),
           variableOverrides: z
-            .record(z.unknown())
+            .record(z.string(), z.unknown())
             .optional()
             .describe("Top-level variable overrides merged into the saved defaults. Pass values as their real JSON types (e.g. `true`, `42`, `{...}`)."),
           replaceVariables: z
-            .record(z.unknown())
+            .record(z.string(), z.unknown())
             .optional()
             .describe("If set, replaces the saved defaults entirely before applying variableOverrides. Use this when the saved variables are stale."),
         },
