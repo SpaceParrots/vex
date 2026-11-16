@@ -15,9 +15,9 @@ export function registerMutateTool(server: McpServer): void {
     "Execute a raw GraphQL mutation. Supports Upload-scalar file uploads via `files`.",
     {
       mutation: z.string().describe("GraphQL mutation string"),
-      variables: z.record(z.unknown()).optional().describe("Variables for the GraphQL mutation"),
+      variables: z.record(z.string(), z.unknown()).optional().describe("Variables for the GraphQL mutation"),
       files: z
-        .record(z.string())
+        .record(z.string(), z.string())
         .optional()
         .describe(
           'For Upload-scalar variables: map of dotted variable path to local file path, e.g. {"input.0.file": "./logo.png"}.'

@@ -14,7 +14,7 @@ export function registerQueryTool(server: McpServer): void {
     "Execute a raw GraphQL query.",
     {
       query: z.string().describe("GraphQL query string"),
-      variables: z.record(z.unknown()).optional().describe("Variables for the GraphQL query"),
+      variables: z.record(z.string(), z.unknown()).optional().describe("Variables for the GraphQL query"),
     },
     async (input) => {
       try {
